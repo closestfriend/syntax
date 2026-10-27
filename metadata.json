@@ -1,0 +1,6 @@
+{
+  "name": "SYNTAX // Design System Synthesis & Reverse-Engineering Engine",
+  "description": "AI-native design system synthesis platform. Deconstruct UI screenshots into token architectures, typography scales, Figma DTCG tokens, and production React/Vue component libraries with autonomous agent API.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
