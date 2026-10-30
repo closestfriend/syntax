@@ -1,6 +1,6 @@
 {
-  "name": "SYNTAX // Design System Synthesis & Reverse-Engineering Engine",
-  "description": "AI-native design system synthesis platform. Deconstruct UI screenshots into token architectures, typography scales, Figma DTCG tokens, and production React/Vue component libraries with autonomous agent API.",
+  "name": "syntax — design system workbench",
+  "description": "Read the system inside a screen. Syntax deconstructs UI screenshots into color tokens, type scales, spatial rhythm, Figma DTCG tokens, and production React/Vue components, with an agent API for handing the result to a coding tool.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_OPENROUTER_API"]
 }

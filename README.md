@@ -1,27 +1,35 @@
 # syntax
 
-Design system reverse-engineering and synthesis workbench. Deconstructs UI screenshots into structured token hierarchies, modular typography scales, spatial grids, and component specifications.
+Read the system inside a screen.
 
-## Architecture
+Bring one or more UI screenshots. Syntax takes them apart into color tokens, a modular
+type scale, spatial rhythm, DTCG tokens, and React/Vue components you can ship as-is.
+Export the tokens, or query them over the local API and let an agent build with them.
 
-- **Multimodal Extraction Server (`server.ts`)**: Express backend that accepts UI captures and runs structured schema extraction via `@google/genai` to infer color tokens, WCAG contrast pairings, font scales, and layout primitives.
-- **Interactive Workbench (`src/components/`)**:
-  - `ColorTokensView` & `TypographyMatrixView`: Inspect and edit extracted color ramps and type scales.
-  - `ComponentsCatalogView` & `InteractiveComponentPreview`: Live preview of synthesized UI primitives against extracted tokens.
-  - `ExportDrawer`: Exports W3C Design Tokens Community Group (DTCG) JSON, CSS custom properties, and React/Tailwind scaffolds.
-  - `AgentApiWorkbench`: Local endpoint inspector for programmatic design-token queries.
+## how it's put together
 
-## Quickstart
+- `server.ts` — express backend. accepts the captures, asks a vision model for the token
+  hierarchy, and checks the answer against a schema.
+- `openrouter.ts` — the only file that talks to a provider. text and image models both
+  route through openrouter, and both are swappable from `.env`.
+- `src/components/` — the workbench:
+  - `ColorTokensView`, `TypographyMatrixView` — read and adjust the extracted ramps and scale.
+  - `ComponentsCatalogView`, `InteractiveComponentPreview` — preview synthesized primitives
+    against the live tokens.
+  - `ExportDrawer` — DTCG json, css custom properties, tailwind scaffold.
+  - `AgentApiWorkbench` — inspect the local endpoints.
+
+## running it
 
 ```bash
-npm install
-cp .env.example .env   # set GEMINI_API_KEY
-npm run dev            # starts Express + Vite workbench on http://localhost:3000
+bun install
+cp .env.example .env    # add your openrouter key
+bun run dev             # express + vite on http://localhost:3000
 ```
 
-## Verification
+## checks
 
 ```bash
-npm run lint           # TypeScript typecheck (tsc --noEmit)
-npm run build          # production Vite bundle
+bun run lint    # tsc --noEmit
+bun run build   # production bundle
 ```

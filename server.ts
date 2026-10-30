@@ -2,13 +2,51 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI, Type } from '@google/genai';
+import { createClient, toDataUrl, Type, TEXT_MODEL } from './openrouter';
 import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * OpenRouter surfaces billing and quota failures as nested JSON strings. Passing
+ * those straight through gives the user an escaped blob with a vendor URL in
+ * it, so map the common ones onto plain sentences.
+ */
+function humanizeError(error: any, fallback: string): string {
+  const raw = String(error?.message ?? error ?? '');
+  const text = raw.toLowerCase();
+  const status = Number(error?.status ?? 0);
+
+  if (text.includes('key limit exceeded') || text.includes('total limit')) {
+    return `the openrouter key has hit its spend cap. raise the limit at openrouter.ai/keys, or set a different OPENROUTER_API_KEY and restart the server.`;
+  }
+  if (status === 402 || text.includes('402') || text.includes('insufficient credit')) {
+    return 'the openrouter account is out of credit. top it up, or set a different OPENROUTER_API_KEY and restart the server.';
+  }
+  if (status === 401 || status === 403 || text.includes('no auth') || text.includes('invalid api key') || text.includes('api key')) {
+    return 'the server could not authenticate with openrouter. check that OPENROUTER_API_KEY is valid and restart the server.';
+  }
+  if (status === 429 || text.includes('429') || text.includes('rate limit')) {
+    return 'openrouter is rate limiting this key. wait a moment and try again.';
+  }
+  if (status === 504 || text.includes('did not answer in time')) {
+    return 'the provider took too long to answer. try fewer or smaller screenshots.';
+  }
+  if (text.includes('safety') || text.includes('blocked') || text.includes('content policy')) {
+    return 'the model declined this request. rephrase the prompt or use a different screenshot.';
+  }
+  if (text.includes('fetch failed') || text.includes('enotfound') || text.includes('econnrefused')) {
+    return 'the server could not reach openrouter. check the network and try again.';
+  }
+
+  // Strip anything that still looks like a payload so the banner stays readable.
+  const short = raw.replace(/\s+/g, ' ').trim();
+  if (!short || short.startsWith('{')) return fallback;
+  return short.length > 220 ? `${short.slice(0, 220)}…` : short;
+}
 
 async function startServer() {
   const app = express();
@@ -18,24 +56,20 @@ async function startServer() {
   app.use(express.json({ limit: '30mb' }));
   app.use(express.urlencoded({ extended: true, limit: '30mb' }));
 
-  // Initialize Gemini API
-  const apiKey = process.env.GEMINI_API_KEY;
-  const ai = apiKey
-    ? new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
-      })
-    : null;
+  // Initialize the OpenRouter client
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const ai = apiKey ? createClient(apiKey) : null;
+
+  // Set when a generation call fails, so the header stops claiming "ready"
+  // while the key is dead. Cleared by the next successful call.
+  let lastEngineError: string | null = null;
 
   // Health check endpoint
   app.get('/api/health', (req: Request, res: Response) => {
     res.json({
       status: 'operational',
       hasApiKey: Boolean(apiKey),
+      lastError: lastEngineError,
       timestamp: new Date().toISOString(),
       version: '1.0.0-syntax-core',
     });
@@ -125,7 +159,7 @@ async function startServer() {
         },
         '/api/v1/design-system/generate-asset': {
           post: {
-            summary: 'Generate a design-system-aligned visual image asset via gemini-nano-banana-2.1 and Gemini LLM prompt inference',
+            summary: 'Generate a design-system-aligned visual image asset via gemini-nano-banana-2.1 and a Gemini text model, routed through OpenRouter',
             operationId: 'generateDesignAsset',
             requestBody: {
               required: true,
@@ -191,7 +225,7 @@ async function startServer() {
     try {
       if (!ai) {
         res.status(500).json({
-          error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel in AI Studio.',
+          error: 'OPENROUTER_API_KEY is not configured on the server. Add it to .env and restart.',
         });
         return;
       }
@@ -203,7 +237,7 @@ async function startServer() {
         return;
       }
 
-      // Convert images to Gemini parts
+      // Convert images to the data URLs the chat completions API expects
       const imageParts = images.map((img: { base64: string; mimeType?: string }) => {
         let cleanBase64 = img.base64;
         let mime = img.mimeType || 'image/png';
@@ -216,10 +250,8 @@ async function startServer() {
         }
 
         return {
-          inlineData: {
-            mimeType: mime,
-            data: cleanBase64,
-          },
+          type: 'image_url' as const,
+          image_url: { url: toDataUrl(mime, cleanBase64) },
         };
       });
 
@@ -248,205 +280,200 @@ ${brandContext ? `Brand/System notes from user: "${brandContext}"` : ''}
 Ensure all colors are extracted directly from the actual pixels in the screenshots, with realistic hex codes, exact semantic groupings, and accessible text contrasts.
 Provide production-ready, clean, responsive React and Vue 3 component implementations that use Tailwind classes reflecting these exact tokens.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: {
-          parts: [...imageParts, { text: promptText }],
-        },
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              identity: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  slug: { type: Type.STRING },
-                  archetype: { type: Type.STRING },
-                  tagline: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  visualEthos: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  mode: { type: Type.STRING, description: 'dark, light, or adaptive' },
-                },
-                required: ['name', 'slug', 'archetype', 'tagline', 'description', 'visualEthos', 'mode'],
+      const parsedData = await ai.chatJson({
+        system: systemInstruction,
+        user: [...imageParts, { type: 'text', text: promptText }],
+        schemaName: 'design_system',
+        schema: {
+          type: Type.OBJECT,
+          properties: {
+            identity: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                slug: { type: Type.STRING },
+                archetype: { type: Type.STRING },
+                tagline: { type: Type.STRING },
+                description: { type: Type.STRING },
+                visualEthos: { type: Type.ARRAY, items: { type: Type.STRING } },
+                mode: { type: Type.STRING, description: 'dark, light, or adaptive' },
               },
-              colors: {
-                type: Type.OBJECT,
-                properties: {
-                  palette: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        name: { type: Type.STRING },
-                        category: { type: Type.STRING, description: 'brand, neutral, semantic, surface, accent' },
-                        hex: { type: Type.STRING },
-                        rgb: { type: Type.STRING },
-                        hsl: { type: Type.STRING },
-                        role: { type: Type.STRING },
-                        contrastRatio: { type: Type.STRING },
-                        wcagPass: { type: Type.BOOLEAN },
-                        figmaTokenPath: { type: Type.STRING },
-                      },
-                      required: ['name', 'category', 'hex', 'role', 'figmaTokenPath'],
-                    },
-                  },
-                  surfaces: {
+              required: ['name', 'slug', 'archetype', 'tagline', 'description', 'visualEthos', 'mode'],
+            },
+            colors: {
+              type: Type.OBJECT,
+              properties: {
+                palette: {
+                  type: Type.ARRAY,
+                  items: {
                     type: Type.OBJECT,
                     properties: {
-                      canvas: { type: Type.STRING },
-                      surface: { type: Type.STRING },
-                      elevated: { type: Type.STRING },
-                      border: { type: Type.STRING },
-                      textPrimary: { type: Type.STRING },
-                      textSecondary: { type: Type.STRING },
-                      textMuted: { type: Type.STRING },
+                      name: { type: Type.STRING },
+                      category: { type: Type.STRING, description: 'brand, neutral, semantic, surface, accent' },
+                      hex: { type: Type.STRING },
+                      rgb: { type: Type.STRING },
+                      hsl: { type: Type.STRING },
+                      role: { type: Type.STRING },
+                      contrastRatio: { type: Type.STRING },
+                      wcagPass: { type: Type.BOOLEAN },
+                      figmaTokenPath: { type: Type.STRING },
                     },
-                    required: ['canvas', 'surface', 'elevated', 'border', 'textPrimary', 'textSecondary'],
+                    required: ['name', 'category', 'hex', 'role', 'figmaTokenPath'],
                   },
                 },
-                required: ['palette', 'surfaces'],
-              },
-              typography: {
-                type: Type.OBJECT,
-                properties: {
-                  fontFamilies: {
-                    type: Type.OBJECT,
-                    properties: {
-                      sans: { type: Type.STRING },
-                      display: { type: Type.STRING },
-                      mono: { type: Type.STRING },
-                    },
-                    required: ['sans', 'display'],
-                  },
-                  scaleRatio: { type: Type.STRING },
-                  steps: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        name: { type: Type.STRING },
-                        size: { type: Type.STRING },
-                        lineHeight: { type: Type.STRING },
-                        letterSpacing: { type: Type.STRING },
-                        weight: { type: Type.STRING },
-                        sampleText: { type: Type.STRING },
-                        cssClass: { type: Type.STRING },
-                      },
-                      required: ['name', 'size', 'lineHeight', 'weight', 'cssClass'],
-                    },
-                  },
-                },
-                required: ['fontFamilies', 'scaleRatio', 'steps'],
-              },
-              spatial: {
-                type: Type.OBJECT,
-                properties: {
-                  gridBase: { type: Type.STRING },
-                  spacingScale: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        token: { type: Type.STRING },
-                        pixels: { type: Type.STRING },
-                        rem: { type: Type.STRING },
-                      },
-                      required: ['token', 'pixels', 'rem'],
-                    },
-                  },
-                  radii: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        token: { type: Type.STRING },
-                        value: { type: Type.STRING },
-                        role: { type: Type.STRING },
-                      },
-                      required: ['token', 'value', 'role'],
-                    },
-                  },
-                  shadows: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        token: { type: Type.STRING },
-                        value: { type: Type.STRING },
-                        style: { type: Type.STRING },
-                      },
-                      required: ['token', 'value'],
-                    },
-                  },
-                  motion: {
-                    type: Type.OBJECT,
-                    properties: {
-                      easingDefault: { type: Type.STRING },
-                      durationQuick: { type: Type.STRING },
-                      durationStandard: { type: Type.STRING },
-                      durationDeliberate: { type: Type.STRING },
-                    },
-                    required: ['easingDefault', 'durationQuick', 'durationStandard'],
-                  },
-                },
-                required: ['gridBase', 'spacingScale', 'radii', 'shadows', 'motion'],
-              },
-              components: {
-                type: Type.ARRAY,
-                items: {
+                surfaces: {
                   type: Type.OBJECT,
                   properties: {
-                    id: { type: Type.STRING },
-                    name: { type: Type.STRING },
-                    category: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    reactCode: { type: Type.STRING },
-                    vueCode: { type: Type.STRING },
-                    htmlCode: { type: Type.STRING },
-                    figmaTokens: { type: Type.STRING },
-                    props: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          name: { type: Type.STRING },
-                          type: { type: Type.STRING },
-                          default: { type: Type.STRING },
-                          description: { type: Type.STRING },
-                        },
-                        required: ['name', 'type'],
-                      },
-                    },
+                    canvas: { type: Type.STRING },
+                    surface: { type: Type.STRING },
+                    elevated: { type: Type.STRING },
+                    border: { type: Type.STRING },
+                    textPrimary: { type: Type.STRING },
+                    textSecondary: { type: Type.STRING },
+                    textMuted: { type: Type.STRING },
                   },
-                  required: ['id', 'name', 'category', 'description', 'reactCode', 'vueCode'],
+                  required: ['canvas', 'surface', 'elevated', 'border', 'textPrimary', 'textSecondary'],
                 },
               },
+              required: ['palette', 'surfaces'],
             },
-            required: ['identity', 'colors', 'typography', 'spatial', 'components'],
+            typography: {
+              type: Type.OBJECT,
+              properties: {
+                fontFamilies: {
+                  type: Type.OBJECT,
+                  properties: {
+                    sans: { type: Type.STRING },
+                    display: { type: Type.STRING },
+                    mono: { type: Type.STRING },
+                  },
+                  required: ['sans', 'display'],
+                },
+                scaleRatio: { type: Type.STRING },
+                steps: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      size: { type: Type.STRING },
+                      lineHeight: { type: Type.STRING },
+                      letterSpacing: { type: Type.STRING },
+                      weight: { type: Type.STRING },
+                      sampleText: { type: Type.STRING },
+                      cssClass: { type: Type.STRING },
+                    },
+                    required: ['name', 'size', 'lineHeight', 'weight', 'cssClass'],
+                  },
+                },
+              },
+              required: ['fontFamilies', 'scaleRatio', 'steps'],
+            },
+            spatial: {
+              type: Type.OBJECT,
+              properties: {
+                gridBase: { type: Type.STRING },
+                spacingScale: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      token: { type: Type.STRING },
+                      pixels: { type: Type.STRING },
+                      rem: { type: Type.STRING },
+                    },
+                    required: ['token', 'pixels', 'rem'],
+                  },
+                },
+                radii: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      token: { type: Type.STRING },
+                      value: { type: Type.STRING },
+                      role: { type: Type.STRING },
+                    },
+                    required: ['token', 'value', 'role'],
+                  },
+                },
+                shadows: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      token: { type: Type.STRING },
+                      value: { type: Type.STRING },
+                      style: { type: Type.STRING },
+                    },
+                    required: ['token', 'value'],
+                  },
+                },
+                motion: {
+                  type: Type.OBJECT,
+                  properties: {
+                    easingDefault: { type: Type.STRING },
+                    durationQuick: { type: Type.STRING },
+                    durationStandard: { type: Type.STRING },
+                    durationDeliberate: { type: Type.STRING },
+                  },
+                  required: ['easingDefault', 'durationQuick', 'durationStandard'],
+                },
+              },
+              required: ['gridBase', 'spacingScale', 'radii', 'shadows', 'motion'],
+            },
+            components: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  name: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  reactCode: { type: Type.STRING },
+                  vueCode: { type: Type.STRING },
+                  htmlCode: { type: Type.STRING },
+                  figmaTokens: { type: Type.STRING },
+                  props: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        name: { type: Type.STRING },
+                        type: { type: Type.STRING },
+                        default: { type: Type.STRING },
+                        description: { type: Type.STRING },
+                      },
+                      required: ['name', 'type'],
+                    },
+                  },
+                },
+                required: ['id', 'name', 'category', 'description', 'reactCode', 'vueCode'],
+              },
+            },
           },
+          required: ['identity', 'colors', 'typography', 'spatial', 'components'],
         },
       });
 
-      const responseText = response.text?.trim() || '{}';
-      const parsedData = JSON.parse(responseText);
-
+      lastEngineError = null;
       res.json({
         success: true,
         data: parsedData,
         meta: {
           analyzedScreenshotsCount: images.length,
           generatedAt: new Date().toISOString(),
-          model: 'gemini-3.8-flash',
+          model: TEXT_MODEL,
         },
       });
     } catch (error: any) {
       console.error('Error in /api/v1/design-system/analyze:', error);
-      res.status(500).json({
-        error: error.message || 'An error occurred while analyzing the UI screenshots with Gemini.',
-      });
+      lastEngineError = humanizeError(
+        error,
+        'the screenshots could not be read. try again, or use smaller images.'
+      );
+      res.status(500).json({ error: lastEngineError });
     }
   });
 
@@ -455,7 +482,7 @@ Provide production-ready, clean, responsive React and Vue 3 component implementa
     try {
       if (!ai) {
         res.status(500).json({
-          error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel.',
+          error: 'OPENROUTER_API_KEY is not configured on the server. Add it to .env and restart.',
         });
         return;
       }
@@ -492,54 +519,48 @@ User Request for New Component Variation:
 
 Synthesize this component completely. It must look immaculate, highly polished, interactive, accessible, and 100% styled in harmony with the design system.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: promptContext,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              id: { type: Type.STRING },
-              name: { type: Type.STRING },
-              category: { type: Type.STRING },
-              description: { type: Type.STRING },
-              designRationale: { type: Type.STRING },
-              reactCode: { type: Type.STRING },
-              vueCode: { type: Type.STRING },
-              htmlCode: { type: Type.STRING },
-              props: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING },
-                    type: { type: Type.STRING },
-                    default: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                  },
-                  required: ['name', 'type'],
+      const variant = await ai.chatJson({
+        system: systemInstruction,
+        user: promptContext,
+        schemaName: 'component_variant',
+        schema: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            name: { type: Type.STRING },
+            category: { type: Type.STRING },
+            description: { type: Type.STRING },
+            designRationale: { type: Type.STRING },
+            reactCode: { type: Type.STRING },
+            vueCode: { type: Type.STRING },
+            htmlCode: { type: Type.STRING },
+            props: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  type: { type: Type.STRING },
+                  default: { type: Type.STRING },
+                  description: { type: Type.STRING },
                 },
+                required: ['name', 'type'],
               },
             },
-            required: ['id', 'name', 'category', 'description', 'reactCode', 'vueCode'],
           },
+          required: ['id', 'name', 'category', 'description', 'reactCode', 'vueCode'],
         },
       });
 
-      const responseText = response.text?.trim() || '{}';
-      const variant = JSON.parse(responseText);
-
+      lastEngineError = null;
       res.json({
         success: true,
         data: variant,
       });
     } catch (error: any) {
       console.error('Error in /api/v1/design-system/generate-variant:', error);
-      res.status(500).json({
-        error: error.message || 'Failed to synthesize component variant.',
-      });
+      lastEngineError = humanizeError(error, 'the component could not be generated. try again.');
+      res.status(500).json({ error: lastEngineError });
     }
   });
 
@@ -548,7 +569,7 @@ Synthesize this component completely. It must look immaculate, highly polished, 
     try {
       if (!ai) {
         res.status(500).json({
-          error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel in AI Studio.',
+          error: 'OPENROUTER_API_KEY is not configured on the server. Add it to .env and restart.',
         });
         return;
       }
@@ -560,7 +581,7 @@ Synthesize this component completely. It must look immaculate, highly polished, 
         return;
       }
 
-      // Step 1: Gemini LLM Inference (gemini-3.8-flash) to translate & infuse the user prompt with the active Design System
+      // Step 1: text model inference to translate & infuse the user prompt with the active Design System
       const systemPromptInference = `You are an elite Creative Director and Design Systems Architect.
 Analyze the user's asset prompt and rigorously translate it into a visual art direction prompt that strictly conforms to the active Design System's visual identity, palette, luminance, and spatial geometry.
 Regardless of how informal, off-brand, or generic the user's input is, the synthesized prompt MUST:
@@ -586,26 +607,22 @@ Return a JSON object with:
 - appliedTokens: Array of strings representing the specific tokens woven into the prompt.
 - assetTitle: A crisp 2-4 word title for this asset.`;
 
-      const inferenceResponse = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: promptContext,
-        config: {
-          systemInstruction: systemPromptInference,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              synthesizedPrompt: { type: Type.STRING },
-              designSystemAlignment: { type: Type.STRING },
-              appliedTokens: { type: Type.ARRAY, items: { type: Type.STRING } },
-              assetTitle: { type: Type.STRING },
-            },
-            required: ['synthesizedPrompt', 'designSystemAlignment', 'appliedTokens', 'assetTitle'],
+      const inferenceData = await ai.chatJson({
+        system: systemPromptInference,
+        user: promptContext,
+        schemaName: 'asset_prompt',
+        schema: {
+          type: Type.OBJECT,
+          properties: {
+            synthesizedPrompt: { type: Type.STRING },
+            designSystemAlignment: { type: Type.STRING },
+            appliedTokens: { type: Type.ARRAY, items: { type: Type.STRING } },
+            assetTitle: { type: Type.STRING },
           },
+          required: ['synthesizedPrompt', 'designSystemAlignment', 'appliedTokens', 'assetTitle'],
         },
       });
 
-      const inferenceData = JSON.parse(inferenceResponse.text?.trim() || '{}');
       const synthesizedPrompt = inferenceData.synthesizedPrompt || prompt;
 
       // Step 2: High-Quality Image Generation with gemini-nano-banana-2.1
@@ -613,31 +630,13 @@ Return a JSON object with:
       const targetAspectRatio = validAspectRatios.includes(aspectRatio) ? aspectRatio : '1:1';
       const targetImageSize = imageSize === '2K' ? '2K' : '1K';
 
-      const imageResponse = await ai.models.generateContent({
-        model: 'gemini-nano-banana-2.1',
-        contents: {
-          parts: [{ text: synthesizedPrompt }],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: targetAspectRatio,
-            imageSize: targetImageSize,
-          },
-        },
+      const imageUrl = await ai.generateImage({
+        prompt: synthesizedPrompt,
+        aspectRatio: targetAspectRatio,
+        resolution: targetImageSize,
       });
 
-      let imageUrl = '';
-      for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          imageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-          break;
-        }
-      }
-
-      if (!imageUrl) {
-        throw new Error('Image generation completed, but no image data part was returned by gemini-nano-banana-2.1.');
-      }
-
+      lastEngineError = null;
       res.json({
         success: true,
         data: {
@@ -656,9 +655,8 @@ Return a JSON object with:
       });
     } catch (error: any) {
       console.error('Error in /api/v1/design-system/generate-asset:', error);
-      res.status(500).json({
-        error: error.message || 'Failed to generate visual asset with gemini-nano-banana-2.1.',
-      });
+      lastEngineError = humanizeError(error, 'the image could not be rendered. try again.');
+      res.status(500).json({ error: lastEngineError });
     }
   });
 
@@ -667,7 +665,7 @@ Return a JSON object with:
     try {
       if (!ai) {
         res.status(500).json({
-          error: 'GEMINI_API_KEY is not configured on the server. Please check the Secrets panel in AI Studio.',
+          error: 'OPENROUTER_API_KEY is not configured on the server. Add it to .env and restart.',
         });
         return;
       }
@@ -703,67 +701,36 @@ Return JSON:
 - designSystemAlignment: 1-2 sentences on how the tokens were maintained.
 - appliedTokens: string array of tokens applied.`;
 
-      const inferenceResponse = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: promptContext,
-        config: {
-          systemInstruction: systemPromptInference,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              synthesizedEditPrompt: { type: Type.STRING },
-              designSystemAlignment: { type: Type.STRING },
-              appliedTokens: { type: Type.ARRAY, items: { type: Type.STRING } },
-            },
-            required: ['synthesizedEditPrompt', 'designSystemAlignment', 'appliedTokens'],
+      const inferenceData = await ai.chatJson({
+        system: systemPromptInference,
+        user: promptContext,
+        schemaName: 'asset_edit',
+        schema: {
+          type: Type.OBJECT,
+          properties: {
+            synthesizedEditPrompt: { type: Type.STRING },
+            designSystemAlignment: { type: Type.STRING },
+            appliedTokens: { type: Type.ARRAY, items: { type: Type.STRING } },
           },
+          required: ['synthesizedEditPrompt', 'designSystemAlignment', 'appliedTokens'],
         },
       });
 
-      const inferenceData = JSON.parse(inferenceResponse.text?.trim() || '{}');
       const synthesizedEditPrompt = inferenceData.synthesizedEditPrompt || editInstruction;
 
-      // Step 2: Edit Image using gemini-nano-banana-2.1 with image + text parts
+      // Step 2: Edit Image using gemini-nano-banana-2.1 with the source as a reference
       const validAspectRatios = ['1:1', '16:9', '9:16', '3:4', '4:3', '1:4', '4:1', '1:8', '8:1'];
       const targetAspectRatio = validAspectRatios.includes(aspectRatio) ? aspectRatio : '1:1';
       const targetImageSize = imageSize === '2K' ? '2K' : '1K';
 
-      const editResponse = await ai.models.generateContent({
-        model: 'gemini-nano-banana-2.1',
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                data: cleanBase64,
-                mimeType: mime,
-              },
-            },
-            {
-              text: synthesizedEditPrompt,
-            },
-          ],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: targetAspectRatio,
-            imageSize: targetImageSize,
-          },
-        },
+      const updatedImageUrl = await ai.generateImage({
+        prompt: synthesizedEditPrompt,
+        referenceImageUrl: toDataUrl(mime, cleanBase64),
+        aspectRatio: targetAspectRatio,
+        resolution: targetImageSize,
       });
 
-      let updatedImageUrl = '';
-      for (const part of editResponse.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          updatedImageUrl = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-          break;
-        }
-      }
-
-      if (!updatedImageUrl) {
-        throw new Error('Image edit completed, but no image part was returned by gemini-nano-banana-2.1.');
-      }
-
+      lastEngineError = null;
       res.json({
         success: true,
         data: {
@@ -783,9 +750,8 @@ Return JSON:
       });
     } catch (error: any) {
       console.error('Error in /api/v1/design-system/edit-asset:', error);
-      res.status(500).json({
-        error: error.message || 'Failed to edit visual asset with gemini-nano-banana-2.1.',
-      });
+      lastEngineError = humanizeError(error, 'the edit could not be applied. try again.');
+      res.status(500).json({ error: lastEngineError });
     }
   });
 
