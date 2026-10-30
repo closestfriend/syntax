@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { DesignSystem, GeneratedAsset } from '../types/designSystem';
+import { contrastRatio, formatRatio, wcagVerdict } from './contrast';
 
 /**
  * Generate W3C Design Tokens Community Group (DTCG) standard JSON format
@@ -17,6 +18,7 @@ export function generateFigmaTokensJson(system: DesignSystem): string {
   };
 
   // Colors
+  const canvas = system.colors.surfaces.canvas;
   system.colors.palette.forEach((token) => {
     const parts = (token.figmaTokenPath || `color/${token.category}/${token.name}`).split('/');
     let current = dtcgTokens;
@@ -26,10 +28,11 @@ export function generateFigmaTokensJson(system: DesignSystem): string {
       current = current[part];
     }
     const lastKey = parts[parts.length - 1];
+    const ratio = contrastRatio(token.hex, canvas);
     current[lastKey] = {
       $value: token.hex,
       $type: 'color',
-      $description: `${token.role}. Contrast: ${token.contrastRatio || 'N/A'}. WCAG: ${token.wcagPass ? 'PASS' : 'WARN'}`,
+      $description: `${token.role}. Contrast on canvas (${canvas}): ${formatRatio(ratio)}, ${wcagVerdict(ratio)}.`,
     };
   });
 
@@ -237,12 +240,10 @@ ${system.identity.visualEthos.map((e) => `- **${e}**`).join('\n')}
 | Token Name | Category | Hex | Role | Contrast vs Canvas | WCAG AA |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 ${system.colors.palette
-  .map(
-    (c) =>
-      `| **${c.name}** | \`${c.category}\` | \`${c.hex}\` | ${c.role} | ${c.contrastRatio || 'N/A'} | ${
-        c.wcagPass ? 'PASS' : 'WARN'
-      } |`
-  )
+  .map((c) => {
+    const ratio = contrastRatio(c.hex, system.colors.surfaces.canvas);
+    return `| **${c.name}** | \`${c.category}\` | \`${c.hex}\` | ${c.role} | ${formatRatio(ratio)} | ${wcagVerdict(ratio).toUpperCase()} |`;
+  })
   .join('\n')}
 
 ---
@@ -320,12 +321,28 @@ export async function downloadDesignSystemZip(system: DesignSystem, assets?: Gen
     const assetsFolder = root.folder('brand-assets');
     if (assetsFolder) {
       assets.forEach((ast, idx) => {
-        let base64Data = ast.imageUrl;
-        if (base64Data.includes(';base64,')) {
-          base64Data = base64Data.split(';base64,')[1];
+        const slug = ast.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const isBase64 = ast.imageUrl.includes(';base64,');
+        const isSvg = /^data:image\/svg\+xml/i.test(ast.imageUrl);
+
+        if (isBase64) {
+          assetsFolder.file(`${slug}-${idx + 1}.png`, ast.imageUrl.split(';base64,')[1], {
+            base64: true,
+          });
+        } else if (isSvg) {
+          // Inline SVG data urls are not base64 at all — write them as text.
+          const markup = decodeURIComponent(
+            ast.imageUrl.replace(/^data:image\/svg\+xml(;utf8)?,/, '')
+          );
+          assetsFolder.file(`${slug}-${idx + 1}.svg`, markup);
+        } else if (/^https?:/i.test(ast.imageUrl)) {
+          assetsFolder.file(
+            `${slug}-${idx + 1}.url.txt`,
+            `This asset was stored as a remote url and is not bundled:\n${ast.imageUrl}\n`
+          );
+        } else {
+          assetsFolder.file(`${slug}-${idx + 1}.txt`, ast.imageUrl);
         }
-        const fileName = `${ast.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${idx + 1}.png`;
-        assetsFolder.file(fileName, base64Data, { base64: true });
       });
     }
   }

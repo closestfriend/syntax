@@ -1,89 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Header 
-} from './components/Header';
-import { 
-  HeroUploader 
-} from './components/HeroUploader';
-import { 
-  DesignSystemWorkbench 
-} from './components/DesignSystemWorkbench';
-import { 
-  ComponentsCatalogView 
-} from './components/ComponentsCatalogView';
-import { 
-  ImageAssetStudio 
-} from './components/ImageAssetStudio';
-import { 
-  AgentApiWorkbench 
-} from './components/AgentApiWorkbench';
-import { 
-  ExportDrawer 
-} from './components/ExportDrawer';
-import { 
-  PRESET_SYSTEMS, 
-  PresetItem 
-} from './data/presets';
-import { 
-  DesignSystem, 
-  ScreenshotItem, 
+import { Header } from './components/Header';
+import { HeroUploader } from './components/HeroUploader';
+import { DesignSystemWorkbench } from './components/DesignSystemWorkbench';
+import { ComponentsCatalogView } from './components/ComponentsCatalogView';
+import { ImageAssetStudio } from './components/ImageAssetStudio';
+import { AgentApiWorkbench } from './components/AgentApiWorkbench';
+import { ExportDrawer } from './components/ExportDrawer';
+import { PRESET_SYSTEMS, PresetItem } from './data/presets';
+import {
+  DesignSystem,
+  ScreenshotItem,
   DesignComponent,
-  GeneratedAsset 
+  GeneratedAsset,
 } from './types/designSystem';
-import { 
-  analyzeScreenshotsApi, 
-  generateComponentVariantApi, 
-  checkServerHealth 
+import {
+  analyzeScreenshotsApi,
+  generateComponentVariantApi,
+  checkServerHealth,
 } from './services/api';
-import { 
-  Sparkles, 
-  AlertCircle, 
-  Layers, 
-  CheckCircle2, 
-  ExternalLink 
-} from 'lucide-react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+
+const initialPreset =
+  PRESET_SYSTEMS.find((p) => p.id === 'overcast-room') || PRESET_SYSTEMS[0];
+
+const quietPreview = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><rect width="800" height="800" fill="%23E9E6E1"/><rect x="0" y="520" width="800" height="1" fill="%232B2A28" opacity="0.3"/><rect x="120" y="300" width="180" height="220" fill="none" stroke="%232B2A28" stroke-width="1" opacity="0.28"/><rect x="560" y="190" width="74" height="74" fill="%23C4704F" opacity="0.9"/><path d="M0 640 Q 400 602 800 640" fill="none" stroke="%232B2A28" stroke-width="1" opacity="0.18"/></svg>`;
+
+const requestedTab = new URLSearchParams(window.location.search).get('tab');
+const initialTab =
+  requestedTab === 'components' || requestedTab === 'assets' || requestedTab === 'api'
+    ? requestedTab
+    : 'workbench';
 
 export default function App() {
-  const [currentSystem, setCurrentSystem] = useState<DesignSystem>(PRESET_SYSTEMS[0].system);
+  const [currentSystem, setCurrentSystem] = useState<DesignSystem>(initialPreset.system);
   const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
   const [assets, setAssets] = useState<GeneratedAsset[]>([
     {
       id: 'ast_init_1',
-      name: 'Kinetic Core Monogram',
-      imageUrl: PRESET_SYSTEMS[0].previewImage,
-      originalPrompt: 'Monogram icon for obsidian kinetic platform',
-      synthesizedPrompt: 'Minimalist 3D faceted geometric obsidian crystal core with internal laser-cyan refraction, floating on deep black void (#090A0F) with sub-pixel indigo rim light (#6366F1)',
-      designSystemAlignment: 'Enforces Obsidian Core Canvas (#090A0F), Electric Indigo (#6366F1) rim highlight, and Laser Cyan (#06B6D4) status beacon.',
-      appliedTokens: ['Core Canvas #090A0F', 'Electric Indigo #6366F1', 'Laser Cyan #06B6D4', 'Radius 14px'],
+      name: 'Quiet Horizon Study',
+      imageUrl: quietPreview,
+      originalPrompt: 'a quiet horizon for the workbench (sample)',
+      synthesizedPrompt:
+        'A monochrome horizon study on warm paper grey, one small clay square, no shadow, no gradient.',
+      designSystemAlignment:
+        'Ground #E9E6E1, ink #2B2A28, a single clay accent #C4704F, hairline rules instead of depth.',
+      appliedTokens: ['Ground #E9E6E1', 'Ink #2B2A28', 'Clay #C4704F', 'Radius 10px'],
       aspectRatio: '1:1',
       imageSize: '1K',
-      assetType: 'ui-artifact',
+      assetType: 'editorial-still',
       createdAt: new Date().toISOString(),
     },
   ]);
-  const [activeTab, setActiveTab] = useState<'workbench' | 'components' | 'assets' | 'api'>('workbench');
+  const [activeTab, setActiveTab] = useState<'workbench' | 'components' | 'assets' | 'api'>(initialTab);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
   const [isGeneratingVariant, setIsGeneratingVariant] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [serverStatus, setServerStatus] = useState({ status: 'checking', hasApiKey: true });
+  const [serverStatus, setServerStatus] = useState<{
+    status: string;
+    hasApiKey: boolean;
+    lastError?: string | null;
+  }>({ status: 'checking', hasApiKey: true });
+
+  const refreshHealth = () => {
+    checkServerHealth().then(setServerStatus);
+  };
 
   useEffect(() => {
-    checkServerHealth().then((status) => {
-      setServerStatus(status);
-    });
+    refreshHealth();
   }, []);
 
   const showToast = (msg: string) => {
     setSuccessToast(msg);
-    setTimeout(() => setSuccessToast(null), 3500);
+    setTimeout(() => setSuccessToast(null), 3600);
   };
 
   const handleAddScreenshot = (item: ScreenshotItem) => {
     setScreenshots((prev) => [...prev, item]);
-    showToast(`Added ${item.name}`);
+    showToast('screenshot added.');
   };
 
   const handleRemoveScreenshot = (id: string) => {
@@ -96,12 +92,12 @@ export default function App() {
 
   const handleAddAsset = (asset: GeneratedAsset) => {
     setAssets((prev) => [asset, ...prev]);
-    showToast(`Rendered brand asset: "${asset.name}"`);
+    showToast('render added to this tab. download it to keep a copy.');
   };
 
   const handleUpdateAsset = (asset: GeneratedAsset) => {
     setAssets((prev) => prev.map((a) => (a.id === asset.id ? asset : a)));
-    showToast(`Updated asset variant: "${asset.name}"`);
+    showToast('variant saved.');
   };
 
   const handleSetAsScreenshot = (dataUrl: string, name: string) => {
@@ -114,28 +110,31 @@ export default function App() {
         mimeType: 'image/png',
       },
     ]);
-    showToast(`Imported ${name} into screenshot queue for deconstruction!`);
+    setActiveTab('workbench');
+    showToast('added to the screenshot queue. synthesize the system when you are ready.');
   };
 
   const handleSelectPreset = (preset: PresetItem) => {
     setCurrentSystem(preset.system);
-    showToast(`Loaded ${preset.name} design system archive`);
+    showToast(`loaded ${preset.system.identity.name.toLowerCase()}.`);
+    window.setTimeout(() => {
+      document.getElementById('current-system')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
   };
 
   const handleSynthesize = async (brandContext: string) => {
     if (screenshots.length === 0) {
-      setErrorMessage('Please upload or paste at least one screenshot before synthesizing.');
+      setErrorMessage('nothing to read yet. add a screenshot to begin.');
       return;
     }
 
     setIsAnalyzing(true);
     setErrorMessage(null);
 
-    // Multi-step progressive status messages for high-tech feedback
-    setAnalysisStep('SCANNING PIXEL LUMINANCE...');
-    const stepTimer1 = setTimeout(() => setAnalysisStep('EXTRACTING COLOR & WCAG MATRICES...'), 1800);
-    const stepTimer2 = setTimeout(() => setAnalysisStep('CALCULATING MODULAR TYPOGRAPHY...'), 3600);
-    const stepTimer3 = setTimeout(() => setAnalysisStep('COMPILING REACT & VUE RIGS...'), 5400);
+    setAnalysisStep('reading the screen');
+    const stepTimer1 = setTimeout(() => setAnalysisStep('measuring color and contrast'), 1800);
+    const stepTimer2 = setTimeout(() => setAnalysisStep('following the type scale'), 3600);
+    const stepTimer3 = setTimeout(() => setAnalysisStep('assembling components'), 5400);
 
     try {
       const payloadImages = screenshots.map((s) => ({
@@ -152,7 +151,7 @@ export default function App() {
 
       if (res.data) {
         setCurrentSystem(res.data);
-        showToast(`Synthesized "${res.data.identity?.name || 'New Design System'}" successfully`);
+        showToast('your system is ready.');
         setActiveTab('workbench');
       }
     } catch (err: any) {
@@ -161,15 +160,16 @@ export default function App() {
       clearTimeout(stepTimer3);
       console.error('Synthesis failed:', err);
       setErrorMessage(
-        err.message || 'Failed to synthesize design system from screenshots. Verify Gemini API connectivity.'
+        err.message || 'the screen could not be read. check the api connection and try again.'
       );
+      refreshHealth();
     } finally {
       setIsAnalyzing(false);
       setAnalysisStep('');
     }
   };
 
-  const handleSynthesizeVariant = async (prompt: string) => {
+  const handleSynthesizeVariant = async (prompt: string): Promise<boolean> => {
     setIsGeneratingVariant(true);
     setErrorMessage(null);
 
@@ -181,19 +181,23 @@ export default function App() {
           ...prev,
           components: [newComponent, ...prev.components],
         }));
-        showToast(`Generated "${newComponent.name}" component variant!`);
+        showToast('component added to the catalog.');
+        refreshHealth();
+        return true;
       }
+      return false;
     } catch (err: any) {
       console.error('Variant synthesis failed:', err);
-      setErrorMessage(err.message || 'Failed to generate component variant.');
+      setErrorMessage(err.message || 'the variant could not be generated. try again in a moment.');
+      refreshHealth();
+      return false;
     } finally {
       setIsGeneratingVariant(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090A0F] text-[#F3F4F6] selection:bg-indigo-600 selection:text-white">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col">
       <Header
         currentSystem={currentSystem}
         onOpenExport={() => setIsExportOpen(true)}
@@ -204,45 +208,61 @@ export default function App() {
         assetsCount={assets.length}
       />
 
-      {/* Success Toast */}
       {successToast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 text-xs font-mono shadow-2xl animate-in fade-in slide-in-from-bottom-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>{successToast}</span>
-        </div>
-      )}
-
-      {/* Error Banner */}
-      {errorMessage && (
-        <div className="px-4 py-3 bg-rose-950/90 border-b border-rose-800 text-rose-200 text-xs font-mono flex items-center justify-between">
-          <div className="flex items-center gap-2 max-w-4xl mx-auto w-full">
-            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span>{errorMessage}</span>
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-[60] fade-in"
+        >
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[var(--rule)] bg-[var(--paper)] text-[13px] text-[var(--ink-soft)]">
+            <CheckCircle2 className="w-4 h-4 text-[var(--lichen)] shrink-0" />
+            <span>{successToast}</span>
           </div>
-          <button
-            onClick={() => setErrorMessage(null)}
-            className="text-rose-400 hover:text-white ml-2 text-xs font-mono uppercase"
-          >
-            Dismiss
-          </button>
         </div>
       )}
 
-      {/* Hero Screenshot Deconstruction & Uploader */}
-      <HeroUploader
-        screenshots={screenshots}
-        onAddScreenshot={handleAddScreenshot}
-        onRemoveScreenshot={handleRemoveScreenshot}
-        onClearScreenshots={handleClearScreenshots}
-        onSynthesize={handleSynthesize}
-        onSelectPreset={handleSelectPreset}
-        isAnalyzing={isAnalyzing}
-        analysisStep={analysisStep}
-        currentSystem={currentSystem}
-      />
+      {errorMessage && (
+        <div role="alert" className="w-full bg-[var(--paper)] border-b border-[var(--rule)]">
+          <div className="max-w-6xl mx-auto px-6 sm:px-10 py-3.5 flex items-start justify-between gap-4 border-l-2 border-l-[var(--brick)]">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-[var(--brick)] shrink-0 mt-0.5" />
+              <span className="text-[13px] text-[var(--brick)] leading-relaxed">{errorMessage}</span>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="btn-quiet shrink-0 text-[12px]"
+            >
+              dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* Main Workspace Body */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">
+      {activeTab === 'workbench' && (
+        <HeroUploader
+          screenshots={screenshots}
+          onAddScreenshot={handleAddScreenshot}
+          onRemoveScreenshot={handleRemoveScreenshot}
+          onClearScreenshots={handleClearScreenshots}
+          onSynthesize={handleSynthesize}
+          onSelectPreset={handleSelectPreset}
+          isAnalyzing={isAnalyzing}
+          analysisStep={analysisStep}
+          currentSystem={currentSystem}
+        />
+      )}
+
+      <main className="flex-1 w-full max-w-6xl mx-auto px-6 sm:px-10 py-16">
+        {activeTab !== 'workbench' && (
+          <h1 className="sr-only">
+            {activeTab === 'components'
+              ? 'component catalog'
+              : activeTab === 'assets'
+              ? 'visual studio'
+              : 'agent api'}
+          </h1>
+        )}
+
         {activeTab === 'workbench' && (
           <DesignSystemWorkbench
             system={currentSystem}
@@ -265,13 +285,15 @@ export default function App() {
             onAddAsset={handleAddAsset}
             onUpdateAsset={handleUpdateAsset}
             onSetAsScreenshot={handleSetAsScreenshot}
+            onEngineActivity={refreshHealth}
           />
         )}
 
-        {activeTab === 'api' && <AgentApiWorkbench system={currentSystem} />}
+        {activeTab === 'api' && (
+          <AgentApiWorkbench system={currentSystem} onEngineActivity={refreshHealth} />
+        )}
       </main>
 
-      {/* Export Package Drawer */}
       <ExportDrawer
         system={currentSystem}
         assets={assets}
@@ -279,28 +301,30 @@ export default function App() {
         onClose={() => setIsExportOpen(false)}
       />
 
-      {/* Visionary Footer */}
-      <footer className="w-full border-t border-[#161A26] bg-[#07080C] py-8 px-4 sm:px-6 mt-16 text-xs font-mono text-slate-500">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-slate-300">SYNTAX // CORE</span>
-            <span>•</span>
-            <span>W3C DTCG SPEC</span>
-            <span>•</span>
-            <span>TOKENS STUDIO</span>
-            <span>•</span>
-            <span>GEMINI 3.8 FLASH</span>
+      <footer className="w-full border-t border-[var(--rule)] mt-8">
+        <div className="max-w-6xl mx-auto px-6 sm:px-10 py-10 flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6">
+          <div>
+            <div className="serif text-[22px] leading-none">syntax</div>
+            <p className="text-[13px] text-[var(--ink-faint)] mt-2 measure">
+              a quiet workbench for reading and keeping design systems.
+            </p>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px] text-slate-400">
-            <span>DEVELOPER & DESIGNER CONTINUUM</span>
-            <span>•</span>
+          <div className="flex items-center gap-6 text-[11px] text-[var(--ink-faint)] mono">
             <button
               onClick={() => setActiveTab('api')}
-              className="text-indigo-400 hover:underline cursor-pointer"
+              className="hover:text-[var(--ink-soft)] hover:underline underline-offset-4 transition-colors"
             >
-              REST API OPENAPI 3.1
+              agent api
             </button>
+            <button
+              onClick={() => setIsExportOpen(true)}
+              className="hover:text-[var(--ink-soft)] hover:underline underline-offset-4 transition-colors"
+            >
+              export
+            </button>
+            <span className="text-[var(--rule-strong)]">w3c dtcg</span>
+            <span className="text-[var(--rule-strong)]">openrouter</span>
           </div>
         </div>
       </footer>

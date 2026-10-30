@@ -86,7 +86,13 @@ export async function editDesignAssetApi(params: {
   return response.json();
 }
 
-export async function checkServerHealth(): Promise<{ status: string; hasApiKey: boolean }> {
+export interface ServerStatus {
+  status: string;
+  hasApiKey: boolean;
+  lastError?: string | null;
+}
+
+export async function checkServerHealth(): Promise<ServerStatus> {
   try {
     const res = await fetch('/api/health');
     if (!res.ok) return { status: 'offline', hasApiKey: false };

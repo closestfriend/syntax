@@ -11,6 +11,261 @@ export interface PresetItem {
 
 export const PRESET_SYSTEMS: PresetItem[] = [
   {
+    id: 'overcast-room',
+    name: 'OVERCAST // READING ROOM',
+    category: 'Quiet Editorial & Warm Minimalism',
+    description: 'A north-lit reading room: warm paper grey, soft ink, one clay accent, and a patient sense of space. Hairline rules replace shadows.',
+    previewImage: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="%23E9E6E1"/><rect x="40" y="40" width="520" height="320" rx="10" fill="%23F0EDE8" stroke="%23D0CCC5"/><text x="72" y="94" fill="%232B2A28" font-family="Georgia,serif" font-size="26">A room under a grey sky</text><rect x="72" y="114" width="456" height="1" fill="%23D0CCC5"/><rect x="72" y="142" width="300" height="9" fill="%235D5A54" opacity="0.55"/><rect x="72" y="162" width="360" height="9" fill="%235D5A54" opacity="0.35"/><rect x="72" y="220" width="120" height="1" fill="%23D0CCC5"/><rect x="72" y="252" width="128" height="36" rx="9" fill="%23C4704F"/><rect x="216" y="252" width="88" height="36" rx="9" fill="none" stroke="%23BDB8B0"/><circle cx="500" cy="82" r="6" fill="%23C4704F"/></svg>',
+    system: {
+      identity: {
+        name: 'Overcast Room',
+        slug: 'overcast-room',
+        archetype: 'The Patient Host',
+        tagline: 'Quiet software in a room under a grey sky.',
+        description: 'Warm paper ground, ink-charcoal text, and a single clay accent. Depth comes from tonal steps and hairline rules; motion is a slow fade, never a bounce.',
+        visualEthos: [
+          'Warm paper grey (#E9E6E1) as the only ground',
+          'Soft ink charcoal (#2B2A28), never pure black',
+          'One clay accent (#C4704F) for the primary action',
+          'Hairline rules, 8-12px corners, no shadow',
+        ],
+        mode: 'light',
+      },
+      colors: {
+        palette: [
+          { name: 'Overcast Ground', category: 'surface', hex: '#E9E6E1', rgb: '233, 230, 225', hsl: '38, 14%, 90%', role: 'The room. Warm paper grey like diffused window light.', contrastRatio: '1.00:1', wcagPass: false, figmaTokenPath: 'color/surface/ground' },
+          { name: 'Cool Panel', category: 'surface', hex: '#D5D7D8', rgb: '213, 215, 216', hsl: '195, 3%, 84%', role: 'Panels and dividers that sit a half-step cooler.', contrastRatio: '1.16:1', wcagPass: false, figmaTokenPath: 'color/surface/panel' },
+          { name: 'Paper Light', category: 'surface', hex: '#F0EDE8', rgb: '240, 237, 232', hsl: '36, 22%, 92%', role: 'Cards and reading surfaces.', contrastRatio: '1.07:1', wcagPass: false, figmaTokenPath: 'color/surface/paper' },
+          { name: 'Soft Ink', category: 'neutral', hex: '#2B2A28', rgb: '43, 42, 40', hsl: '40, 3%, 16%', role: 'Headlines and body text. Never pure black.', contrastRatio: '11.5:1', wcagPass: true, figmaTokenPath: 'color/text/ink' },
+          { name: 'Ink Secondary', category: 'neutral', hex: '#5D5A54', rgb: '93, 90, 84', hsl: '41, 5%, 35%', role: 'Captions, metadata, and quiet interface text.', contrastRatio: '5.5:1', wcagPass: true, figmaTokenPath: 'color/text/secondary' },
+          { name: 'Clay Accent', category: 'accent', hex: '#C4704F', rgb: '196, 112, 79', hsl: '17, 47%, 54%', role: 'Marks, borders and fill. Text-bearing buttons step down to #A85B3D.', contrastRatio: '2.9:1', wcagPass: false, figmaTokenPath: 'color/accent/clay' },
+          { name: 'Lichen', category: 'semantic', hex: '#5B6557', rgb: '91, 101, 87', hsl: '102, 7%, 37%', role: 'Success and selected states. A slate green-grey, dark enough to read.', contrastRatio: '4.9:1', wcagPass: true, figmaTokenPath: 'color/semantic/lichen' },
+          { name: 'Dusty Brick', category: 'semantic', hex: '#96503F', rgb: '150, 80, 63', hsl: '12, 41%, 42%', role: 'Errors. A dusty brick, never alarm red.', contrastRatio: '4.8:1', wcagPass: true, figmaTokenPath: 'color/semantic/brick' },
+        ],
+        surfaces: {
+          canvas: '#E9E6E1',
+          surface: '#F0EDE8',
+          elevated: '#D5D7D8',
+          border: '#D0CCC5',
+          textPrimary: '#2B2A28',
+          textSecondary: '#5D5A54',
+          textMuted: '#8B867D',
+        },
+      },
+      typography: {
+        fontFamilies: {
+          sans: 'Instrument Sans',
+          display: 'Newsreader',
+          mono: 'IBM Plex Mono',
+        },
+        scaleRatio: '1.250 (Major Third)',
+        steps: [
+          { name: 'Display', size: '44px', lineHeight: '50px', letterSpacing: '-0.02em', weight: '400', sampleText: 'Read the system inside a screen.', cssClass: 'text-5xl font-serif tracking-tight' },
+          { name: 'Heading', size: '30px', lineHeight: '37px', letterSpacing: '-0.015em', weight: '400', sampleText: 'A quiet room for design systems', cssClass: 'text-3xl font-serif' },
+          { name: 'Subhead', size: '21px', lineHeight: '29px', letterSpacing: '-0.01em', weight: '400', sampleText: 'Volume one, the reading room', cssClass: 'text-xl font-serif' },
+          { name: 'Body', size: '15px', lineHeight: '25px', letterSpacing: '0.00em', weight: '400', sampleText: 'Bring one or more screenshots. The system will wait.', cssClass: 'text-[15px] leading-6' },
+          { name: 'Interface', size: '13px', lineHeight: '20px', letterSpacing: '0.01em', weight: '500', sampleText: 'synthesize the system', cssClass: 'text-[13px] font-medium' },
+          { name: 'Caption', size: '11px', lineHeight: '16px', letterSpacing: '0.08em', weight: '400', sampleText: 'ground · ink · clay', cssClass: 'text-[11px] font-mono tracking-[0.08em]' },
+        ],
+      },
+      spatial: {
+        gridBase: '8px base grid',
+        spacingScale: [
+          { token: 'space-2xs', pixels: '4px', rem: '0.25rem' },
+          { token: 'space-xs', pixels: '8px', rem: '0.5rem' },
+          { token: 'space-sm', pixels: '12px', rem: '0.75rem' },
+          { token: 'space-md', pixels: '16px', rem: '1rem' },
+          { token: 'space-lg', pixels: '24px', rem: '1.5rem' },
+          { token: 'space-xl', pixels: '32px', rem: '2rem' },
+          { token: 'space-2xl', pixels: '48px', rem: '3rem' },
+          { token: 'space-3xl', pixels: '64px', rem: '4rem' },
+        ],
+        radii: [
+          { token: 'radius-sm', value: '8px', role: 'Fields, tags, and small controls' },
+          { token: 'radius-md', value: '12px', role: 'Cards, panels, and modals' },
+          { token: 'radius-pill', value: '999px', role: 'Tags only' },
+        ],
+        shadows: [
+          { token: 'shadow-none', value: 'none', style: 'Depth comes from tonal steps between greys' },
+        ],
+        motion: {
+          easingDefault: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+          durationQuick: '200ms',
+          durationStandard: '380ms',
+          durationDeliberate: '500ms',
+        },
+      },
+      components: [
+        {
+          id: 'btn-overcast-primary',
+          name: 'Quiet Primary Action',
+          category: 'Actions',
+          description: 'The one clay action on a screen. Soft corners, no shadow, a slow fade on hover.',
+          designRationale: 'A single warm note in an otherwise grey room makes intent obvious without raising the volume.',
+          reactCode: `import React from 'react';
+
+export const QuietButton: React.FC<{ label?: string; onClick?: () => void }> = ({
+  label = 'synthesize the system',
+  onClick,
+}) => (
+  <button
+    onClick={onClick}
+    className="inline-flex items-center gap-2 rounded-[10px] bg-[#A85B3D] px-4 py-2.5 text-[13px] text-[#FBF8F4] transition-colors duration-300 hover:bg-[#8A4A32]"
+  >
+    {label}
+    <span aria-hidden>→</span>
+  </button>
+);`,
+          vueCode: `<template>
+  <button
+    class="inline-flex items-center gap-2 rounded-[10px] bg-[#A85B3D] px-4 py-2.5 text-[13px] text-[#FBF8F4] transition-colors duration-300 hover:bg-[#8A4A32]"
+  >
+    {{ label }}
+    <span aria-hidden>→</span>
+  </button>
+</template>
+
+<script setup lang="ts">
+withDefaults(defineProps<{ label?: string }>(), { label: 'synthesize the system' });
+</script>`,
+          htmlCode: `<button class="inline-flex items-center gap-2 rounded-[10px] bg-[#A85B3D] px-4 py-2.5 text-[13px] text-[#FBF8F4] transition-colors duration-300 hover:bg-[#8A4A32]">
+  synthesize the system <span aria-hidden>→</span>
+</button>`,
+          figmaTokens: 'comp/button/quiet-primary',
+          props: [
+            { name: 'label', type: 'string', default: 'synthesize the system', description: 'Button copy' },
+            { name: 'onClick', type: '() => void', default: 'undefined', description: 'Press handler' },
+          ],
+        },
+        {
+          id: 'card-overcast-note',
+          name: 'Reading Note Card',
+          category: 'Surfaces',
+          description: 'A paper card with a hairline border, a quiet eyebrow, and room to breathe.',
+          designRationale: 'Tonal separation and a single rule do the work that a shadow would otherwise do.',
+          reactCode: `import React from 'react';
+
+export const ReadingNote: React.FC<{ eyebrow: string; title: string; body: string }> = ({
+  eyebrow,
+  title,
+  body,
+}) => (
+  <article className="rounded-[12px] border border-[#D0CCC5] bg-[#F0EDE8] p-6">
+    <p className="font-mono text-[10px] tracking-[0.08em] text-[#8B867D]">{eyebrow}</p>
+    <h3 className="mt-2 font-serif text-[24px] text-[#2B2A28]">{title}</h3>
+    <p className="mt-2 max-w-[55ch] text-[14px] leading-6 text-[#5D5A54]">{body}</p>
+  </article>
+);`,
+          vueCode: `<template>
+  <article class="rounded-[12px] border border-[#D0CCC5] bg-[#F0EDE8] p-6">
+    <p class="font-mono text-[10px] tracking-[0.08em] text-[#8B867D]">{{ eyebrow }}</p>
+    <h3 class="mt-2 font-serif text-[24px] text-[#2B2A28]">{{ title }}</h3>
+    <p class="mt-2 max-w-[55ch] text-[14px] leading-6 text-[#5D5A54]">{{ body }}</p>
+  </article>
+</template>
+
+<script setup lang="ts">
+defineProps<{ eyebrow: string; title: string; body: string }>();
+</script>`,
+          htmlCode: `<article class="rounded-[12px] border border-[#D0CCC5] bg-[#F0EDE8] p-6">
+  <p class="font-mono text-[10px] tracking-[0.08em] text-[#8B867D]">note</p>
+  <h3 class="mt-2 font-serif text-[24px] text-[#2B2A28]">A quieter surface</h3>
+  <p class="mt-2 text-[14px] leading-6 text-[#5D5A54]">The room does the work.</p>
+</article>`,
+          figmaTokens: 'comp/card/reading-note',
+          props: [
+            { name: 'eyebrow', type: 'string', default: 'note', description: 'Small mono label' },
+            { name: 'title', type: 'string', default: 'A quieter surface', description: 'Card heading' },
+            { name: 'body', type: 'string', default: 'The room does the work.', description: 'Card copy' },
+          ],
+        },
+        {
+          id: 'input-overcast-field',
+          name: 'Unhurried Field',
+          category: 'Inputs',
+          description: 'A plain field with a hairline border and a clay focus state. No glow.',
+          designRationale: 'Focus is the only moment the accent is allowed to move into an input.',
+          reactCode: `import React from 'react';
+
+export const UnhurriedField: React.FC<{ label: string; placeholder?: string }> = ({
+  label,
+  placeholder = 'try a line of your own',
+}) => (
+  <label className="block">
+    <span className="font-mono text-[10px] tracking-[0.08em] text-[#8B867D]">{label}</span>
+    <input
+      placeholder={placeholder}
+      className="mt-2 w-full rounded-[10px] border border-[#BDB8B0] bg-transparent px-3.5 py-2.5 text-[13px] text-[#2B2A28] placeholder:text-[#6A655C] focus:border-[#C4704F] focus:outline-none"
+    />
+  </label>
+);`,
+          vueCode: `<template>
+  <label class="block">
+    <span class="font-mono text-[10px] tracking-[0.08em] text-[#8B867D]">{{ label }}</span>
+    <input
+      :placeholder="placeholder"
+      class="mt-2 w-full rounded-[10px] border border-[#BDB8B0] bg-transparent px-3.5 py-2.5 text-[13px] text-[#2B2A28] placeholder:text-[#6A655C] focus:border-[#C4704F] focus:outline-none"
+    />
+  </label>
+</template>
+
+<script setup lang="ts">
+withDefaults(defineProps<{ label: string; placeholder?: string }>(), {
+  placeholder: 'try a line of your own',
+});
+</script>`,
+          htmlCode: `<label class="block">
+  <span class="font-mono text-[10px] tracking-[0.08em] text-[#8B867D]">preview text</span>
+  <input placeholder="try a line of your own" class="mt-2 w-full rounded-[10px] border border-[#BDB8B0] px-3.5 py-2.5 text-[13px]" />
+</label>`,
+          figmaTokens: 'comp/input/unhurried',
+          props: [
+            { name: 'label', type: 'string', default: 'preview text', description: 'Field label' },
+            { name: 'placeholder', type: 'string', default: 'try a line of your own', description: 'Placeholder copy' },
+          ],
+        },
+        {
+          id: 'badge-overcast-tag',
+          name: 'Quiet Status Tag',
+          category: 'Status',
+          description: 'A small pill for state. Lichen for ready, brick for a problem, ink for everything else.',
+          designRationale: 'Colour carries meaning here, so the shape stays still and the type stays small.',
+          reactCode: `import React from 'react';
+
+const tones = {
+  ready: 'border-[#6F7A6A] text-[#6F7A6A]',
+  error: 'border-[#A65A4A] text-[#A65A4A]',
+  quiet: 'border-[#BDB8B0] text-[#5D5A54]',
+};
+
+export const QuietTag: React.FC<{ tone?: keyof typeof tones; children: React.ReactNode }> = ({
+  tone = 'quiet',
+  children,
+}) => (
+  <span className={\`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[10px] \${tones[tone]}\`}>
+    {children}
+  </span>
+);`,
+          vueCode: `<template>
+  <span class="inline-flex items-center gap-1.5 rounded-full border border-[#BDB8B0] px-2.5 py-0.5 font-mono text-[10px] text-[#5D5A54]">
+    {{ label }}
+  </span>
+</template>
+
+<script setup lang="ts">
+withDefaults(defineProps<{ label?: string }>(), { label: 'saved' });
+</script>`,
+          htmlCode: `<span class="inline-flex items-center gap-1.5 rounded-full border border-[#BDB8B0] px-2.5 py-0.5 font-mono text-[10px] text-[#5D5A54]">saved</span>`,
+          figmaTokens: 'comp/badge/quiet-status',
+          props: [
+            { name: 'tone', type: "'ready' | 'error' | 'quiet'", default: 'quiet', description: 'Semantic colour' },
+            { name: 'children', type: 'ReactNode', default: 'undefined', description: 'Tag label' },
+          ],
+        },
+      ],
+    },
+  },
+  {
     id: 'monolith-dark',
     name: 'KINETIC // OBSIDIAN',
     category: 'Hyper-Refined Dark Luxury',

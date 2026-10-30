@@ -1,24 +1,18 @@
 import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  Image as ImageIcon, 
-  Wand2, 
-  Download, 
-  Copy, 
-  Check, 
-  SlidersHorizontal, 
-  RefreshCw, 
-  Layers, 
-  Cpu, 
-  Eye, 
-  X, 
-  Upload, 
-  ArrowRight,
+import {
+  Image as ImageIcon,
+  Wand2,
+  Download,
+  Copy,
+  Check,
+  X,
+  Layers,
   Maximize2,
-  Ratio
+  ArrowRight,
 } from 'lucide-react';
 import { DesignSystem, GeneratedAsset } from '../types/designSystem';
 import { generateDesignAssetApi, editDesignAssetApi } from '../services/api';
+import { useDialog } from '../hooks/useDialog';
 
 interface ImageAssetStudioProps {
   system: DesignSystem;
@@ -26,6 +20,7 @@ interface ImageAssetStudioProps {
   onAddAsset: (asset: GeneratedAsset) => void;
   onUpdateAsset: (asset: GeneratedAsset) => void;
   onSetAsScreenshot?: (dataUrl: string, name: string) => void;
+  onEngineActivity?: () => void;
 }
 
 export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
@@ -34,6 +29,7 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
   onAddAsset,
   onUpdateAsset,
   onSetAsScreenshot,
+  onEngineActivity,
 }) => {
   const [prompt, setPrompt] = useState('');
   const [assetType, setAssetType] = useState<string>('ui-artifact');
@@ -42,21 +38,22 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
-  // Editing state
   const [editingAsset, setEditingAsset] = useState<GeneratedAsset | null>(null);
   const [editInstruction, setEditInstruction] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Zoom lightbox
   const [lightboxAsset, setLightboxAsset] = useState<GeneratedAsset | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const editPanelRef = useDialog<HTMLDivElement>(Boolean(editingAsset), () => setEditingAsset(null));
+  const lightboxRef = useDialog<HTMLDivElement>(Boolean(lightboxAsset), () => setLightboxAsset(null));
+
   const sampleSuggestions = [
-    { label: '3D Floating Holographic Core', type: 'ui-artifact' },
-    { label: 'Dark Atmospheric Kinetic Grid Wallpaper', type: 'texture-pattern' },
-    { label: 'Minimalist Monogram Security Shield Badge', type: 'badge-icon' },
-    { label: 'Cinematic Hero Banner with Laser Glass Horizon', type: 'hero-visual' },
+    { label: 'a quiet monogram', type: 'badge-icon' },
+    { label: 'soft paper texture', type: 'texture-pattern' },
+    { label: 'a horizon for the hero', type: 'hero-visual' },
+    { label: 'an editorial still life', type: 'editorial-still' },
   ];
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -81,9 +78,12 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
       }
     } catch (err: any) {
       console.error('Asset generation failed:', err);
-      setGenerationError(err.message || 'Failed to generate visual asset with gemini-nano-banana-2.1.');
+      setGenerationError(
+        err.message || 'the image could not be rendered. check the api connection and try again.'
+      );
     } finally {
       setIsGenerating(false);
+      onEngineActivity?.();
     }
   };
 
@@ -111,9 +111,10 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
       }
     } catch (err: any) {
       console.error('Asset edit failed:', err);
-      setEditError(err.message || 'Failed to edit asset with gemini-nano-banana-2.1.');
+      setEditError(err.message || 'the edit could not be applied. try again in a moment.');
     } finally {
       setIsEditing(false);
+      onEngineActivity?.();
     }
   };
 
@@ -133,199 +134,196 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
   };
 
   return (
-    <div className="space-y-8">
-      {/* Studio Header & Model Badge */}
-      <div className="relative rounded-2xl bg-gradient-to-br from-[#121422] via-[#0E111C] to-[#090A0F] border border-indigo-500/30 p-6 sm:p-8 shadow-[0_0_40px_rgba(99,102,241,0.15)] overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-14">
+      <section className="max-w-3xl">
+        <div className="eyebrow">visual studio</div>
+        <h2 className="serif text-[2rem] sm:text-[2.5rem] leading-[1.12] mt-4">
+          Make an image that belongs here.
+        </h2>
+        <p className="measure mt-4 text-[14px] leading-[1.75] text-[var(--ink-soft)]">
+          Describe what you want in your own words. The prompt is rewritten to hold the
+          palette and mood of <span className="text-[var(--ink)]">{system.identity.name}</span>,
+          then rendered.
+        </p>
 
-        <div className="relative z-10 max-w-3xl">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-950/80 text-indigo-300 font-mono text-xs border border-indigo-700/50">
-              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
-              <span>GEMINI-NANO-BANANA-2.1</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/80 text-cyan-300 font-mono text-xs border border-cyan-700/50">
-              <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>TOKEN-CONSTRAINED LLM INFERENCE</span>
-            </span>
-          </div>
-
-          <h3 className="font-heading text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Design-System-Aware Visual Asset Generation & Studio
-          </h3>
-          <p className="mt-2 text-xs sm:text-sm text-slate-400 font-sans leading-relaxed">
-            Enter any prompt — regardless of how generic or informal. The Gemini LLM automatically analyzes 
-            and rewrites your prompt to strictly adhere to <strong className="text-white">{system.identity.name}</strong>'s exact 
-            color tokens ({system.colors.palette.slice(0, 3).map((c) => c.hex).join(', ')}), surface contrast, and aesthetic archetype. 
-            High-fidelity visuals are rendered via <strong className="text-indigo-300">gemini-nano-banana-2.1</strong>.
-          </p>
-
-          {/* Generator Form */}
-          <form onSubmit={handleGenerate} className="mt-6 space-y-4">
-            <div className="relative">
-              <Sparkles className="absolute left-4 top-3.5 w-4 h-4 text-indigo-400" />
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Describe your desired asset: e.g. 'futuristic security badge', 'abstract geometric orb', 'analytics hero wave'..."
-                className="w-full pl-11 pr-4 py-3 rounded-xl bg-[#090A0F] border border-[#23293D] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans"
-              />
-            </div>
-
-            {/* Controls Bar: Asset Role, Aspect Ratio, Resolution */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Asset Role Selector */}
-                <select
-                  value={assetType}
-                  onChange={(e) => setAssetType(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg bg-[#141826] border border-[#222738] text-xs font-mono text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  <option value="ui-artifact">3D UI Artifact & Icon</option>
-                  <option value="hero-visual">Hero Key Visual</option>
-                  <option value="badge-icon">Monogram / Brand Badge</option>
-                  <option value="texture-pattern">Texture & Wallpaper</option>
-                  <option value="editorial-still">Editorial Art Still</option>
-                </select>
-
-                {/* Aspect Ratio Selector */}
-                <select
-                  value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg bg-[#141826] border border-[#222738] text-xs font-mono text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                >
-                  <option value="1:1">1:1 Square</option>
-                  <option value="16:9">16:9 Landscape</option>
-                  <option value="9:16">9:16 Portrait</option>
-                  <option value="4:3">4:3 Standard</option>
-                  <option value="3:4">3:4 Poster</option>
-                  <option value="1:4">1:4 Header Banner</option>
-                  <option value="4:1">4:1 Ribbon</option>
-                </select>
-
-                {/* Resolution Selector */}
-                <div className="flex items-center rounded-lg bg-[#141826] border border-[#222738] p-0.5">
-                  {(['1K', '2K'] as const).map((sz) => (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => setImageSize(sz)}
-                      className={`px-2.5 py-1 rounded text-[11px] font-mono cursor-pointer transition-colors ${
-                        imageSize === sz
-                          ? 'bg-indigo-600 text-white font-semibold'
-                          : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {sz}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isGenerating || !prompt.trim()}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  isGenerating || !prompt.trim()
-                    ? 'bg-indigo-950/50 text-indigo-400/50 border border-indigo-900 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)]'
-                }`}
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                    <span>SYNTHESIZING & RENDERING...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>GENERATE BRAND ASSET</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Quick Suggestions */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-mono text-slate-500">Inspire:</span>
-            {sampleSuggestions.map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                onClick={() => {
-                  setPrompt(s.label);
-                  setAssetType(s.type);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-[#141826] hover:bg-indigo-950 text-[11px] font-mono text-slate-400 hover:text-indigo-200 border border-[#222738] transition-colors cursor-pointer"
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          {generationError && (
-            <div className="mt-4 p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-xs font-mono text-rose-300">
-              {generationError}
-            </div>
-          )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span className="tag">gemini nano banana 2.1</span>
+          <span className="tag">token-constrained</span>
         </div>
-      </div>
 
-      {/* Generated Assets Collection */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h4 className="font-heading text-lg font-bold text-white tracking-tight">
-              Design System Asset Catalog ({assets.length})
-            </h4>
-            <p className="text-xs text-slate-400 font-mono">
-              High-resolution visual artifacts rendered with exact brand palette alignment.
-            </p>
+        <form onSubmit={handleGenerate} className="mt-7">
+          <label className="block">
+            <span className="eyebrow block mb-2">the prompt</span>
+            <input
+              type="text"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="e.g. a soft graphite horizon, one clay mark, no shadow"
+              className="input"
+              aria-label="describe the image to generate"
+            />
+          </label>
+
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={assetType}
+                onChange={(e) => setAssetType(e.target.value)}
+                className="select"
+                aria-label="asset type"
+                title="asset type"
+              >
+                <option value="ui-artifact">3d ui artifact</option>
+                <option value="hero-visual">hero key visual</option>
+                <option value="badge-icon">monogram / badge</option>
+                <option value="texture-pattern">texture & wallpaper</option>
+                <option value="editorial-still">editorial still</option>
+              </select>
+
+              <select
+                value={aspectRatio}
+                onChange={(e) => setAspectRatio(e.target.value)}
+                className="select"
+                aria-label="aspect ratio"
+                title="aspect ratio"
+              >
+                <option value="1:1">1:1 square</option>
+                <option value="16:9">16:9 landscape</option>
+                <option value="9:16">9:16 portrait</option>
+                <option value="4:3">4:3 standard</option>
+                <option value="3:4">3:4 poster</option>
+                <option value="1:4">1:4 header</option>
+                <option value="4:1">4:1 ribbon</option>
+              </select>
+
+              <div
+                className="flex items-center rounded-[9px] border border-[var(--rule-strong)] p-0.5"
+                role="group"
+                aria-label="image size"
+              >
+                {(['1K', '2K'] as const).map((sz) => (
+                  <button
+                    key={sz}
+                    type="button"
+                    onClick={() => setImageSize(sz)}
+                    aria-pressed={imageSize === sz}
+                    className={`px-2.5 py-1 rounded-[7px] mono text-[10.5px] transition-colors duration-300 ${
+                      imageSize === sz
+                        ? 'bg-[var(--ink)] text-[var(--ground)]'
+                        : 'text-[var(--ink-faint)] hover:text-[var(--ink-soft)]'
+                    }`}
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isGenerating || !prompt.trim()}
+              className="btn-primary shrink-0"
+            >
+              {isGenerating ? (
+                <span>rendering</span>
+              ) : (
+                <>
+                  <span>generate asset</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
           </div>
+        </form>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="eyebrow mr-1">try</span>
+          {sampleSuggestions.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => {
+                setPrompt(s.label);
+                setAssetType(s.type);
+              }}
+              className="tag hover:border-[var(--ink-faint)] hover:text-[var(--ink-soft)] transition-colors"
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {generationError && (
+          <p className="mt-5 pl-3 border-l-2 border-[var(--brick)] text-[12.5px] text-[var(--brick)] leading-relaxed">
+            {generationError}
+          </p>
+        )}
+      </section>
+
+      <section>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div>
+            <div className="eyebrow">catalog</div>
+            <h4 className="serif text-[24px] mt-2">
+              rendered assets{' '}
+              <span className="mono text-[12px] text-[var(--ink-faint)] align-middle">
+                {assets.length}
+              </span>
+            </h4>
+          </div>
+          <p className="text-[12px] text-[var(--ink-faint)] max-w-xs sm:text-right">
+            each image keeps the palette it was made from.
+          </p>
         </div>
 
         {assets.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-[#11131B] border border-[#1E2333]">
-            <ImageIcon className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-            <h4 className="text-sm font-semibold text-white">No visual assets generated yet</h4>
-            <p className="text-xs text-slate-400 font-mono mt-1 max-w-md mx-auto">
-              Type any prompt above to generate UI artifacts, hero graphics, and texture patterns powered by Gemini prompt logic and gemini-nano-banana-2.1.
+          <div className="mt-6 pt-8 border-t border-[var(--rule)] max-w-xl">
+            <div className="w-10 h-10 rounded-full border border-[var(--rule-strong)] flex items-center justify-center text-[var(--ink-soft)] mb-4">
+              <ImageIcon className="w-4 h-4" />
+            </div>
+            <h4 className="serif text-[23px]">Nothing rendered yet.</h4>
+            <p className="mt-2 text-[13.5px] leading-[1.7] text-[var(--ink-soft)]">
+              Write a prompt above. Renders stay in this tab — download one to keep it.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {assets.map((asset) => (
-              <div
-                key={asset.id}
-                className="group relative rounded-2xl bg-[#10121A] border border-[#1E2436] hover:border-indigo-500/50 transition-all shadow-xl overflow-hidden flex flex-col justify-between"
-              >
-                {/* Image Container with overlay actions */}
-                <div className="relative aspect-square w-full bg-[#08090F] overflow-hidden flex items-center justify-center">
+              <div key={asset.id} className="card overflow-hidden flex flex-col group">
+                <div
+                  className="relative w-full bg-[var(--panel-soft)] overflow-hidden"
+                  style={{ aspectRatio: asset.aspectRatio.replace(':', ' / ') }}
+                >
                   <img
                     src={asset.imageUrl}
                     alt={asset.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={`w-full h-full ${
+                      asset.aspectRatio === '1:1' ? 'object-cover' : 'object-contain'
+                    }`}
                   />
 
-                  {/* Badges */}
                   <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-black/75 backdrop-blur-md text-white border border-white/20">
-                      {asset.aspectRatio} • {asset.imageSize}
+                    <span
+                      className="tag"
+                      style={{ backgroundColor: 'var(--paper)' }}
+                    >
+                      {asset.aspectRatio} · {asset.imageSize}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-indigo-950/80 backdrop-blur-md text-indigo-300 border border-indigo-700/50">
+                    <span
+                      className="tag hidden sm:inline-flex"
+                      style={{ backgroundColor: 'var(--paper)' }}
+                    >
                       {asset.assetType}
                     </span>
                   </div>
 
-                  {/* Hover Quick Actions */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
+                  <div className="absolute inset-0 bg-[rgba(43,42,40,0.32)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300 flex items-end sm:items-center justify-end sm:justify-center gap-2 p-3 sm:p-4">
                     <button
                       type="button"
                       onClick={() => setLightboxAsset(asset)}
-                      className="p-2.5 rounded-xl bg-white/20 hover:bg-white/40 text-white cursor-pointer backdrop-blur-md"
-                      title="Enlarge"
+                      className="icon-btn"
+                      title="enlarge"
+                      aria-label={`enlarge ${asset.name}`}
                     >
                       <Maximize2 className="w-4 h-4" />
                     </button>
@@ -335,72 +333,62 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
                         setEditingAsset(asset);
                         setEditInstruction('');
                       }}
-                      className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer backdrop-blur-md shadow-lg"
-                      title="Edit this asset with AI"
+                      className="icon-btn"
+                      title="edit with ai"
+                      aria-label={`edit ${asset.name} with ai`}
                     >
                       <Wand2 className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => downloadAsset(asset)}
-                      className="p-2.5 rounded-xl bg-white/20 hover:bg-white/40 text-white cursor-pointer backdrop-blur-md"
-                      title="Download PNG"
+                      className="icon-btn"
+                      title="download png"
+                      aria-label={`download ${asset.name}`}
                     >
                       <Download className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                {/* Details Footer */}
-                <div className="p-4 space-y-3 bg-[#0E1017]">
-                  <div>
-                    <h5 className="text-sm font-bold text-white font-heading truncate">
-                      {asset.name}
-                    </h5>
-                    <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
-                      Prompt: "{asset.originalPrompt}"
+                <div className="p-4 flex-1 flex flex-col">
+                  <h5 className="serif text-[18px] leading-snug truncate">{asset.name}</h5>
+                  <p className="mono text-[10px] text-[var(--ink-faint)] mt-1 truncate">
+                    “{asset.originalPrompt}”
+                  </p>
+
+                  <div className="sunken mt-3 p-3">
+                    <div className="eyebrow mb-1">tokens enforced</div>
+                    <p className="text-[11.5px] leading-[1.65] text-[var(--ink-soft)]">
+                      {asset.designSystemAlignment}
                     </p>
                   </div>
 
-                  {/* Design System Rationale Pill */}
-                  <div className="p-2.5 rounded-lg bg-[#08090F] border border-[#1A1E2C] text-[11px] text-slate-300 font-sans leading-relaxed">
-                    <div className="flex items-center gap-1 text-[10px] font-mono text-indigo-400 uppercase font-semibold mb-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Tokens Enforced by Gemini LLM</span>
-                    </div>
-                    {asset.designSystemAlignment}
-                  </div>
-
-                  {/* Token tags */}
                   {asset.appliedTokens && asset.appliedTokens.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
+                    <div className="mt-3 flex flex-wrap gap-1.5">
                       {asset.appliedTokens.slice(0, 3).map((tok, i) => (
-                        <span
-                          key={i}
-                          className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#141826] text-slate-400 border border-[#202538]"
-                        >
+                        <span key={i} className="tag">
                           {tok}
                         </span>
                       ))}
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-between pt-2 border-t border-[#1C2030] text-xs font-mono">
+                  <div className="mt-auto pt-3 flex items-center justify-between gap-3 border-t border-[var(--rule)] mono text-[10px]">
                     <button
                       type="button"
                       onClick={() => copyDataUrl(asset)}
-                      className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                      className="flex items-center gap-1.5 text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
                     >
                       {copiedId === asset.id ? (
                         <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400">Copied DataURL</span>
+                          <Check className="w-3 h-3 text-[var(--lichen)]" />
+                          <span className="text-[var(--lichen)]">copied</span>
                         </>
                       ) : (
                         <>
                           <Copy className="w-3 h-3" />
-                          <span>Copy Image URL</span>
+                          <span>copy url</span>
                         </>
                       )}
                     </button>
@@ -409,11 +397,11 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
                       <button
                         type="button"
                         onClick={() => onSetAsScreenshot(asset.imageUrl, asset.name)}
-                        className="text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
-                        title="Deconstruct this image into design system tokens"
+                        className="flex items-center gap-1.5 text-[var(--ink-faint)] hover:text-[var(--ink-soft)] transition-colors"
+                        title="deconstruct this image into tokens"
                       >
-                        <Layers className="w-3 h-3 text-cyan-400" />
-                        <span>Deconstruct</span>
+                        <Layers className="w-3 h-3" />
+                        <span>deconstruct</span>
                       </button>
                     )}
                   </div>
@@ -422,28 +410,33 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* In-Place Image Edit Modal */}
       {editingAsset && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-[#0D0F17] border border-[#23293D] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 scrim flex items-center justify-center p-4 sm:p-8">
+          <div
+            ref={editPanelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="edit this image"
+            className="relative w-full max-w-2xl card p-6 sm:p-7"
+          >
             <button
               onClick={() => setEditingAsset(null)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-[#181C28] hover:bg-[#202538] text-white cursor-pointer"
+              className="absolute top-4 right-4 icon-btn"
+              title="close"
+              aria-label="close the edit panel"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-2 mb-4">
-              <Wand2 className="w-5 h-5 text-indigo-400" />
-              <h4 className="font-heading text-lg font-bold text-white">
-                Edit Asset with gemini-nano-banana-2.1
-              </h4>
-            </div>
+            <h4 className="serif text-[23px] pr-10">Edit this image</h4>
+            <p className="text-[12.5px] text-[var(--ink-soft)] mt-1">
+              Your instruction is held against the active palette.
+            </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div className="aspect-square rounded-xl overflow-hidden bg-black border border-[#23293D]">
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="aspect-square rounded-lg overflow-hidden bg-[var(--panel-soft)] border border-[var(--rule)]">
                 <img
                   src={editingAsset.imageUrl}
                   alt={editingAsset.name}
@@ -451,67 +444,51 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
                 />
               </div>
 
-              <div className="flex flex-col justify-between text-xs font-mono space-y-2">
-                <div className="p-3 rounded-xl bg-[#11131B] border border-[#1E2333] space-y-1.5">
-                  <span className="text-slate-400 uppercase text-[10px]">Original Name:</span>
-                  <div className="text-white font-bold">{editingAsset.name}</div>
-                  <span className="text-slate-400 uppercase text-[10px] block pt-1">Active Design Tokens:</span>
-                  <div className="text-indigo-300 text-[11px] truncate">
-                    {system.identity.name} ({system.identity.mode})
+              <div className="flex flex-col justify-between gap-4">
+                <div className="sunken p-3.5">
+                  <div className="eyebrow">original</div>
+                  <div className="serif text-[17px] mt-1">{editingAsset.name}</div>
+                  <div className="eyebrow mt-3">active system</div>
+                  <div className="text-[12px] text-[var(--ink-soft)] mt-1">
+                    {system.identity.name} · {system.identity.mode}
                   </div>
                 </div>
 
-                <p className="text-slate-400 font-sans text-xs">
-                  Your edit instructions will be synthesized with the active design system palette, ensuring brand coherence.
+                <p className="text-[12px] leading-[1.7] text-[var(--ink-soft)]">
+                  Keep the change small. The closer the instruction, the quieter the result.
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleEdit} className="space-y-3">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={editInstruction}
-                  onChange={(e) => setEditInstruction(e.target.value)}
-                  placeholder="e.g. 'Invert color accents to laser cyan', 'Add sharp geometric faceting'..."
-                  className="w-full px-4 py-3 rounded-xl bg-[#090A0F] border border-[#23293D] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-sans"
-                />
-              </div>
+            <form onSubmit={handleEdit} className="mt-5 space-y-3">
+              <input
+                type="text"
+                value={editInstruction}
+                onChange={(e) => setEditInstruction(e.target.value)}
+                placeholder="e.g. lower the contrast, remove the background, warm the light"
+                className="input"
+              />
 
               {editError && (
-                <div className="p-2.5 rounded-lg bg-rose-950/60 border border-rose-800 text-xs font-mono text-rose-300">
+                <p className="pl-3 border-l-2 border-[var(--brick)] text-[12px] text-[var(--brick)]">
                   {editError}
-                </div>
+                </p>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => setEditingAsset(null)}
-                  className="px-4 py-2 rounded-xl bg-[#181C28] hover:bg-[#202538] text-slate-300 text-xs font-mono cursor-pointer"
+                  className="btn-quiet"
                 >
-                  Cancel
+                  cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isEditing || !editInstruction.trim()}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer ${
-                    isEditing || !editInstruction.trim()
-                      ? 'bg-indigo-950 text-indigo-400/50 cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg'
-                  }`}
+                  className="btn-primary"
                 >
-                  {isEditing ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>EDITING WITH NANO BANANA...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-3.5 h-3.5" />
-                      <span>APPLY BRAND EDIT</span>
-                    </>
-                  )}
+                  {isEditing ? <span>applying</span> : <span>apply the edit</span>}
                 </button>
               </div>
             </form>
@@ -519,35 +496,42 @@ export const ImageAssetStudio: React.FC<ImageAssetStudioProps> = ({
         </div>
       )}
 
-      {/* Lightbox Modal */}
       {lightboxAsset && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 scrim flex items-center justify-center p-4 sm:p-8"
           onClick={() => setLightboxAsset(null)}
         >
           <div
-            className="relative max-w-4xl max-h-[90vh] rounded-2xl overflow-hidden border border-slate-700 bg-slate-900 p-2"
+            ref={lightboxRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`image preview: ${lightboxAsset.name}`}
+            className="relative max-w-4xl max-h-[90vh] card p-2"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setLightboxAsset(null)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-black/70 text-white hover:bg-black cursor-pointer z-10"
+              className="absolute top-3 right-3 icon-btn z-10"
+              title="close"
+              aria-label="close the preview"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
             <img
               src={lightboxAsset.imageUrl}
               alt={lightboxAsset.name}
-              className="max-h-[85vh] w-auto object-contain rounded-xl"
+              className="max-h-[78vh] w-auto object-contain rounded-lg"
             />
-            <div className="p-3 text-xs font-mono text-slate-300 flex items-center justify-between">
-              <span>{lightboxAsset.name} ({lightboxAsset.aspectRatio})</span>
+            <div className="px-2 py-3 flex items-center justify-between gap-4 text-[11px] mono text-[var(--ink-soft)]">
+              <span>
+                {lightboxAsset.name} · {lightboxAsset.aspectRatio}
+              </span>
               <button
                 onClick={() => downloadAsset(lightboxAsset)}
-                className="text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+                className="flex items-center gap-1.5 hover:text-[var(--ink)] transition-colors"
               >
                 <Download className="w-3 h-3" />
-                <span>Download PNG</span>
+                <span>download png</span>
               </button>
             </div>
           </div>

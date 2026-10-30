@@ -1,26 +1,17 @@
 import React, { useState } from 'react';
-import { 
-  Terminal, 
-  Copy, 
-  Check, 
-  Play, 
-  Cpu, 
-  ExternalLink, 
-  Code2, 
-  Bot, 
-  Download,
-  BookOpen,
-  Sparkles
-} from 'lucide-react';
+import { Copy, Check, Play, ArrowRight } from 'lucide-react';
 import { DesignSystem } from '../types/designSystem';
 
 interface AgentApiWorkbenchProps {
   system: DesignSystem;
+  onEngineActivity?: () => void;
 }
 
-export const AgentApiWorkbench: React.FC<AgentApiWorkbenchProps> = ({ system }) => {
+export const AgentApiWorkbench: React.FC<AgentApiWorkbenchProps> = ({ system, onEngineActivity }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [activeEndpoint, setActiveEndpoint] = useState<'analyze' | 'generateVariant' | 'generateAsset' | 'openapi'>('analyze');
+  const [activeEndpoint, setActiveEndpoint] = useState<
+    'analyze' | 'generateVariant' | 'generateAsset' | 'openapi'
+  >('analyze');
   const [testResponse, setTestResponse] = useState<string | null>(null);
   const [isCallingApi, setIsCallingApi] = useState(false);
 
@@ -30,7 +21,6 @@ export const AgentApiWorkbench: React.FC<AgentApiWorkbenchProps> = ({ system }) 
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Agent Prompt Context Generator
   const generateAgentSystemPrompt = () => {
     return `### SYSTEM CONTEXT: DESIGN SYSTEM RULES FOR "${system.identity.name.toUpperCase()}"
 Archetype: ${system.identity.archetype}
@@ -45,7 +35,10 @@ SURFACES:
 - Text Secondary: ${system.colors.surfaces.textSecondary}
 
 KEY BRAND & ACCENT COLORS:
-${system.colors.palette.slice(0, 6).map((c) => `- ${c.name}: ${c.hex} (${c.role})`).join('\n')}
+${system.colors.palette
+  .slice(0, 6)
+  .map((c) => `- ${c.name}: ${c.hex} (${c.role})`)
+  .join('\n')}
 
 TYPOGRAPHY:
 - Sans Family: ${system.typography.fontFamilies.sans}
@@ -82,7 +75,6 @@ When generating UI components or visual assets for this system, strictly use the
         const json = await res.json();
         setTestResponse(JSON.stringify(json, null, 2));
       } else {
-        // Health / analyze spec
         const res = await fetch('/api/health');
         const json = await res.json();
         setTestResponse(JSON.stringify(json, null, 2));
@@ -91,8 +83,14 @@ When generating UI components or visual assets for this system, strictly use the
       setTestResponse(JSON.stringify({ error: err.message }, null, 2));
     } finally {
       setIsCallingApi(false);
+      onEngineActivity?.();
     }
   };
+
+  // analyze needs an image and generate-asset needs a prompt; neither has a safe
+  // default to send from here, so those rows explain themselves instead of
+  // firing a different endpoint and pretending it was the one you picked.
+  const runnable = activeEndpoint === 'generateVariant' || activeEndpoint === 'openapi';
 
   const curlAnalyze = `curl -X POST "${window.location.origin}/api/v1/design-system/analyze" \\
   -H "Content-Type: application/json" \\
@@ -106,228 +104,224 @@ When generating UI components or visual assets for this system, strictly use the
     "brandContext": "Modern developer platform dark mode"
   }'`;
 
+  const minimalSystem = JSON.stringify({
+    identity: { name: system.identity.name, mode: system.identity.mode },
+    colors: { surfaces: system.colors.surfaces },
+  });
+
   const curlVariant = `curl -X POST "${window.location.origin}/api/v1/design-system/generate-variant" \\
   -H "Content-Type: application/json" \\
   -d '{
     "prompt": "Interactive audio playback scrubber with volume slider",
-    "designSystem": { ... }
+    "designSystem": ${minimalSystem}
   }'`;
 
   const curlAsset = `curl -X POST "${window.location.origin}/api/v1/design-system/generate-asset" \\
   -H "Content-Type: application/json" \\
   -d '{
     "prompt": "3D kinetic obsidian crystal core",
-    "designSystem": { ... },
+    "designSystem": ${minimalSystem},
     "assetType": "ui-artifact",
     "aspectRatio": "1:1",
     "imageSize": "1K"
   }'`;
 
+  const endpoints = [
+    {
+      id: 'analyze',
+      method: 'post',
+      path: '/api/v1/design-system/analyze',
+      desc: 'read screenshots into tokens and components',
+    },
+    {
+      id: 'generateVariant',
+      method: 'post',
+      path: '/api/v1/design-system/generate-variant',
+      desc: 'grow a component from the active tokens',
+    },
+    {
+      id: 'generateAsset',
+      method: 'post',
+      path: '/api/v1/design-system/generate-asset',
+      desc: 'render a visual asset in the system palette',
+    },
+    {
+      id: 'openapi',
+      method: 'get',
+      path: '/api/v1/design-system/openapi.json',
+      desc: 'the openapi 3.1 schema for agents',
+    },
+  ];
+
+  const activeCurl =
+    activeEndpoint === 'analyze'
+      ? curlAnalyze
+      : activeEndpoint === 'generateVariant'
+      ? curlVariant
+      : activeEndpoint === 'generateAsset'
+      ? curlAsset
+      : `curl "${window.location.origin}/api/v1/design-system/openapi.json"`;
+
   return (
-    <div className="space-y-8">
-      {/* Intro Header */}
-      <div className="p-6 rounded-2xl bg-gradient-to-br from-[#121422] to-[#0A0C14] border border-[#1E2333]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/80 text-cyan-300 font-mono text-xs border border-cyan-700/50 mb-2">
-              <Bot className="w-3.5 h-3.5 text-cyan-400" />
-              <span>MACHINE-TO-MACHINE & HUMAN AGENT PROTOCOL</span>
-            </div>
-            <h3 className="font-heading text-2xl font-bold text-white tracking-tight">
-              Cross-Platform Agent API & Token Exchange
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-400 font-sans mt-1 max-w-2xl">
-              Equip autonomous agents (Cursor, Claude Code, GitHub Copilot, custom LangChain/AutoGPT agents) 
-              with machine-readable token schemas, real-time variant synthesis endpoints, and OpenAPI 3.1 definitions.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => copyText(generateAgentSystemPrompt(), 'agent-prompt')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-medium transition-all cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.3)]"
-            >
-              {copiedKey === 'agent-prompt' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              <span>Copy Agent System Prompt</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* API Endpoint Documentation & Live Sandbox */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Endpoints navigation */}
-        <div className="lg:col-span-4 space-y-3">
-          <h4 className="text-xs font-bold font-heading text-slate-400 uppercase tracking-wider">
-            Available REST Endpoints
-          </h4>
-
-          {[
-            {
-              id: 'analyze',
-              method: 'POST',
-              path: '/api/v1/design-system/analyze',
-              desc: 'Deconstruct UI screenshots into design tokens & components',
-            },
-            {
-              id: 'generateVariant',
-              method: 'POST',
-              path: '/api/v1/design-system/generate-variant',
-              desc: 'Synthesize new component variations from active tokens',
-            },
-            {
-              id: 'generateAsset',
-              method: 'POST',
-              path: '/api/v1/design-system/generate-asset',
-              desc: 'Generate brand visual assets with gemini-nano-banana-2.1 and Gemini LLM prompt logic',
-            },
-            {
-              id: 'openapi',
-              method: 'GET',
-              path: '/api/v1/design-system/openapi.json',
-              desc: 'OpenAPI 3.1 schema for autonomous agent tool integration',
-            },
-          ].map((ep) => {
-            const isActive = activeEndpoint === ep.id;
-            return (
-              <div
-                key={ep.id}
-                onClick={() => setActiveEndpoint(ep.id as any)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                  isActive
-                    ? 'bg-[#151926] border-indigo-500 shadow-md'
-                    : 'bg-[#10121A] border-[#1E2333] hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
-                      ep.method === 'POST' ? 'bg-indigo-950 text-indigo-300' : 'bg-emerald-950 text-emerald-300'
-                    }`}
-                  >
-                    {ep.method}
-                  </span>
-                  <span className="text-xs font-mono text-white font-semibold truncate">
-                    {ep.path}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 font-sans">{ep.desc}</p>
-              </div>
-            );
-          })}
+    <div className="space-y-14">
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="max-w-2xl">
+          <div className="eyebrow">agent api</div>
+          <h2 className="serif text-[2rem] sm:text-[2.5rem] leading-[1.12] mt-4">
+            The same system, for machines.
+          </h2>
+          <p className="measure mt-4 text-[14px] leading-[1.75] text-[var(--ink-soft)]">
+            Hand the active tokens to Cursor, Claude Code, Copilot or a pipeline of your own.
+            Copy the system prompt, or call the endpoints directly.
+          </p>
         </div>
 
-        {/* Endpoint Inspector & Runner */}
-        <div className="lg:col-span-8 rounded-2xl bg-[#0D0F17] border border-[#1E2333] overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b border-[#1A1F2E] flex items-center justify-between bg-[#10121A]">
-            <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs font-mono text-slate-300 font-semibold">
-                cURL & Live Execution Console
-              </span>
-            </div>
+        <button
+          onClick={() => copyText(generateAgentSystemPrompt(), 'agent-prompt')}
+          className="btn-primary shrink-0 self-start md:self-auto"
+        >
+          {copiedKey === 'agent-prompt' ? (
+            <>
+              <Check className="w-3.5 h-3.5" />
+              <span>copied</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              <span>copy agent prompt</span>
+            </>
+          )}
+        </button>
+      </section>
 
-            <div className="flex items-center gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-4">
+          <div className="eyebrow mb-3">endpoints</div>
+          <div className="border-t border-[var(--rule)]">
+            {endpoints.map((ep) => {
+              const isActive = activeEndpoint === ep.id;
+              return (
+                <button
+                  key={ep.id}
+                  onClick={() => setActiveEndpoint(ep.id as any)}
+                  className={`w-full text-left py-3.5 pl-3 -ml-3 border-b border-[var(--rule)] border-l-2 transition-colors ${
+                    isActive ? 'border-l-[var(--lichen)]' : 'border-l-transparent'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="mono text-[9px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">
+                      {ep.method}
+                    </span>
+                    <span
+                      className={`mono text-[10.5px] truncate transition-colors ${
+                        isActive ? 'text-[var(--lichen)]' : 'text-[var(--ink)]'
+                      }`}
+                    >
+                      {ep.path}
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-[var(--ink-soft)] mt-1">{ep.desc}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="lg:col-span-8 card overflow-hidden">
+          <div className="p-4 border-b border-[var(--rule)] flex items-center justify-between gap-3 bg-[var(--paper)]">
+            <span className="eyebrow">console</span>
+
+            <div className="flex items-center gap-4">
               <button
-                onClick={() =>
-                  copyText(
-                    activeEndpoint === 'analyze'
-                      ? curlAnalyze
-                      : activeEndpoint === 'generateVariant'
-                      ? curlVariant
-                      : activeEndpoint === 'generateAsset'
-                      ? curlAsset
-                      : `curl "${window.location.origin}/api/v1/design-system/openapi.json"`,
-                    'curl'
-                  )
-                }
-                className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#181C28] hover:bg-[#202538] text-slate-300 text-[11px] font-mono cursor-pointer"
+                onClick={() => copyText(activeCurl, 'curl')}
+                className="btn-quiet text-[11px]"
               >
-                {copiedKey === 'curl' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>Copy cURL</span>
+                {copiedKey === 'curl' ? (
+                  <Check className="w-3 h-3 text-[var(--lichen)]" />
+                ) : (
+                  <Copy className="w-3 h-3" />
+                )}
+                <span>copy curl</span>
               </button>
 
               <button
                 onClick={handleTestCall}
-                disabled={isCallingApi}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-mono font-semibold cursor-pointer shadow-sm"
+                disabled={isCallingApi || !runnable}
+                title={
+                  runnable
+                    ? 'send this request'
+                    : 'this endpoint needs an image or prompt — use the workbench instead'
+                }
+                className="btn-secondary text-[11px] py-1.5 px-3"
               >
-                {isCallingApi ? (
-                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Play className="w-3 h-3 fill-current" />
-                )}
-                <span>Run Request</span>
+                <Play className="w-3 h-3 fill-current" />
+                <span>{isCallingApi ? 'running' : runnable ? 'run request' : 'needs input'}</span>
               </button>
             </div>
           </div>
 
-          {/* cURL Display */}
-          <div className="p-4 bg-[#090A0F] font-mono text-xs text-slate-300 border-b border-[#1A1F2E] overflow-x-auto">
-            <pre className="text-[11px] text-indigo-200">
-              {activeEndpoint === 'analyze' && curlAnalyze}
-              {activeEndpoint === 'generateVariant' && curlVariant}
-              {activeEndpoint === 'generateAsset' && curlAsset}
-              {activeEndpoint === 'openapi' && `curl "${window.location.origin}/api/v1/design-system/openapi.json"`}
+          <div className="p-4 bg-[var(--ground-deep)] border-b border-[var(--rule)] overflow-x-auto quiet-scroll">
+            <pre className="mono text-[10.5px] leading-[1.7] text-[var(--ink-soft)]">
+              {activeCurl}
             </pre>
           </div>
 
-          {/* Response Payload Viewer */}
-          <div className="p-4 bg-[#07080C] min-h-[220px] max-h-96 overflow-y-auto font-mono text-xs text-slate-300">
-            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 mb-2">
-              <span>LIVE SERVER RESPONSE [HTTP 200]</span>
-              {testResponse && <span>{testResponse.length} BYTES</span>}
+          <div className="p-4 bg-[var(--paper)] min-h-[220px] max-h-96 overflow-auto quiet-scroll">
+            <div className="flex items-center justify-between mono text-[9.5px] text-[var(--ink-faint)] mb-2">
+              <span>response</span>
+              {testResponse && (
+                <span>{new Blob([testResponse]).size.toLocaleString()} bytes</span>
+              )}
             </div>
 
             {testResponse ? (
-              <pre className="text-emerald-300 text-[11px] leading-relaxed">
+              <pre className="mono text-[10.5px] leading-[1.75] text-[var(--ink-soft)]">
                 {testResponse}
               </pre>
             ) : (
-              <div className="text-slate-600 italic py-10 text-center">
-                Click "Run Request" above to test the live backend route with active system tokens.
-              </div>
+              <p className="text-[12px] italic text-[var(--ink-faint)] py-8">
+                {runnable
+                  ? 'Run a request to see the live response. It will appear here.'
+                  : 'This call needs a screenshot or a prompt. Run it from the workbench, or paste the curl somewhere with real input.'}
+              </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Agent Prompts & Rules Integration Guide */}
-      <div className="p-6 rounded-2xl bg-[#10121A] border border-[#1E2333]">
-        <div className="flex items-center gap-2 mb-3">
-          <BookOpen className="w-4 h-4 text-indigo-400" />
-          <h4 className="font-heading text-base font-bold text-white tracking-tight">
-            How to Feed This Design System into AI Coding Agents
-          </h4>
+      <section className="border-t border-[var(--rule)] pt-8">
+        <div className="eyebrow">how to use it</div>
+        <h4 className="serif text-[24px] mt-2">Feed it to an agent.</h4>
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            {
+              n: '01',
+              title: 'Cursor rules',
+              body: 'Copy the agent prompt and paste it into .cursorrules at the root of a project. New code will fall into place.',
+            },
+            {
+              n: '02',
+              title: 'Figma tokens',
+              body: 'Export tokens.json and load it into Tokens Studio. The palette and scale arrive as variables.',
+            },
+            {
+              n: '03',
+              title: 'Automated pipelines',
+              body: 'Call generate-variant over REST whenever a design change lands. Your CI can open the pull request.',
+            },
+          ].map((item) => (
+            <div key={item.n} className="border-t border-[var(--rule)] pt-4">
+              <div className="mono text-[10px] text-[var(--ink-faint)]">{item.n}</div>
+              <h5 className="serif text-[18px] mt-1.5">{item.title}</h5>
+              <p className="text-[12.5px] leading-[1.7] text-[var(--ink-soft)] mt-1.5">
+                {item.body}
+              </p>
+            </div>
+          ))}
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-sans text-slate-400">
-          <div className="p-4 rounded-xl bg-[#090A0F] border border-[#1C2030]">
-            <h5 className="font-semibold text-white font-mono mb-1">1. Cursor (.cursorrules)</h5>
-            <p className="leading-relaxed">
-              Click "Copy Agent System Prompt" and paste into your project's root <code className="text-indigo-300">.cursorrules</code> file. 
-              Cursor will automatically format all AI-generated code with your exact colors and typography.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#090A0F] border border-[#1C2030]">
-            <h5 className="font-semibold text-white font-mono mb-1">2. Figma Tokens Studio</h5>
-            <p className="leading-relaxed">
-              Export the <code className="text-indigo-300">tokens.json</code> package and load it into the Tokens Studio 
-              for Figma plugin. Syncs instant styles and component variables into your Figma canvases.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#090A0F] border border-[#1C2030]">
-            <h5 className="font-semibold text-white font-mono mb-1">3. Automated CI/CD Agents</h5>
-            <p className="leading-relaxed">
-              Automated pipelines can query <code className="text-indigo-300">/api/v1/design-system/generate-variant</code> via REST to generate 
-              component PRs whenever design changes are merged.
-            </p>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 };

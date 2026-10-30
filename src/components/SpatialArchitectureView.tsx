@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Box, Play, RefreshCw, Sparkles } from 'lucide-react';
 import { SpatialArchitecture } from '../types/designSystem';
 
 interface SpatialArchitectureViewProps {
@@ -9,171 +8,149 @@ interface SpatialArchitectureViewProps {
 export const SpatialArchitectureView: React.FC<SpatialArchitectureViewProps> = ({ spatial }) => {
   const [motionTrigger, setMotionTrigger] = useState(0);
 
+  const maxPx = Math.max(...spatial.spacingScale.map((s) => parseInt(s.pixels, 10) || 1), 1);
+
   return (
-    <div className="space-y-8">
-      {/* Grid & Spacing Scale */}
-      <div className="p-6 rounded-2xl bg-[#11131B] border border-[#1E2333]">
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#1E2333]">
+    <div className="space-y-14">
+      <section>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
-            <h3 className="font-heading text-lg font-bold text-white tracking-tight">
-              Spatial Scale & Modular Rhythm
-            </h3>
-            <p className="text-xs text-slate-400 font-mono">
-              Base unit: <span className="text-indigo-300 font-semibold">{spatial.gridBase}</span>
-            </p>
+            <div className="eyebrow">spatial rhythm</div>
+            <h3 className="serif text-[25px] mt-2">space between things</h3>
           </div>
+          <p className="mono text-[11px] text-[var(--ink-faint)]">
+            base unit · {spatial.gridBase}
+          </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="mt-5 border-t border-[var(--rule)]">
           {spatial.spacingScale.map((space) => {
-            const pxNum = parseInt(space.pixels, 10) || 16;
-            const barWidth = Math.min(pxNum * 5, 400);
+            const pxNum = parseInt(space.pixels, 10) || 1;
+            const width = Math.max((pxNum / maxPx) * 100, 2);
 
             return (
               <div
                 key={space.token}
-                className="flex items-center justify-between p-3 rounded-xl bg-[#090A0F] border border-[#1C2030] hover:border-indigo-500/40 transition-colors"
+                className="py-3.5 border-b border-[var(--rule)] flex items-center gap-4 sm:gap-8"
               >
-                <div className="flex items-center gap-4 w-44 shrink-0">
-                  <span className="text-xs font-mono font-semibold text-white">
-                    {space.token}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400">
-                    {space.pixels} ({space.rem})
-                  </span>
+                <div className="w-32 sm:w-40 shrink-0">
+                  <div className="mono text-[11px] text-[var(--ink)]">{space.token}</div>
+                  <div className="mono text-[10px] text-[var(--ink-faint)] mt-0.5">
+                    {space.pixels} · {space.rem}
+                  </div>
                 </div>
 
-                {/* Visual Scale Bar */}
-                <div className="flex-1 flex items-center px-4">
+                <div className="flex-1 h-px bg-[var(--rule)] relative">
                   <div
-                    style={{ width: `${barWidth}px` }}
-                    className="h-3 rounded-md bg-gradient-to-r from-indigo-600 to-indigo-400 shadow-sm"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 h-[7px] rounded-sm"
+                    style={{ width: `${width}%`, backgroundColor: 'var(--rule-strong)' }}
                   />
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Border Radius Tokens & Elevation Shadows */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Radii */}
-        <div className="p-6 rounded-2xl bg-[#11131B] border border-[#1E2333]">
-          <h3 className="font-heading text-base font-bold text-white tracking-tight mb-4">
-            Corner Curvature Tokens
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <section>
+          <div className="eyebrow">corners</div>
+          <h4 className="serif text-[21px] mt-2">soft corners, one pill for tags</h4>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             {spatial.radii.map((r) => (
-              <div
-                key={r.token}
-                className="p-4 bg-[#090A0F] border border-[#1E2333] flex flex-col items-center text-center group"
-                style={{ borderRadius: r.value }}
-              >
+              <div key={r.token} className="card p-4">
                 <div
-                  className="w-12 h-12 bg-indigo-600/30 border-2 border-indigo-500 mb-2 flex items-center justify-center text-indigo-300 text-xs font-mono"
+                  className="w-10 h-10 border border-[var(--rule-strong)] bg-[var(--ground)]"
                   style={{ borderRadius: r.value }}
-                >
-                  {r.value}
-                </div>
-                <div className="text-xs font-bold text-white font-mono">{r.token}</div>
-                <div className="text-[11px] text-slate-400 font-sans mt-0.5">{r.role}</div>
+                />
+                <div className="mono text-[11px] text-[var(--ink)] mt-3">{r.token}</div>
+                <div className="mono text-[10px] text-[var(--ink-faint)] mt-0.5">{r.value}</div>
+                <div className="text-[11.5px] text-[var(--ink-soft)] mt-1.5">{r.role}</div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Shadows & Lighting */}
-        <div className="p-6 rounded-2xl bg-[#11131B] border border-[#1E2333]">
-          <h3 className="font-heading text-base font-bold text-white tracking-tight mb-4">
-            Atmospheric Shadows & Glows
-          </h3>
-          <div className="space-y-4">
+        <section>
+          <div className="eyebrow">depth</div>
+          <h4 className="serif text-[21px] mt-2">tonal, not theatrical</h4>
+
+          <div className="mt-5 space-y-3">
             {spatial.shadows.map((sh) => (
               <div
                 key={sh.token}
-                className="p-4 rounded-xl bg-[#090A0F] border border-[#1C2030] flex items-center justify-between"
+                className="p-4 rounded-xl bg-[var(--paper)] border border-[var(--rule)]"
                 style={{ boxShadow: sh.value }}
               >
-                <div>
-                  <div className="text-xs font-bold text-white font-mono">{sh.token}</div>
-                  <div className="text-[11px] text-slate-400 font-sans">{sh.style}</div>
+                <div className="mono text-[11px] text-[var(--ink)]">{sh.token}</div>
+                <div className="text-[11.5px] text-[var(--ink-soft)] mt-1">
+                  {sh.style || 'resting elevation'}
                 </div>
-                <code className="text-[10px] font-mono text-indigo-300 max-w-[180px] truncate">
+                <div className="mono text-[9.5px] text-[var(--ink-faint)] mt-2 truncate">
                   {sh.value}
-                </code>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Motion & Easing Curves */}
-      <div className="p-6 rounded-2xl bg-[#11131B] border border-[#1E2333]">
-        <div className="flex items-center justify-between mb-4">
+      <section>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
-            <h3 className="font-heading text-base font-bold text-white tracking-tight">
-              Kinetic Motion & Transition Timing
-            </h3>
-            <p className="text-xs text-slate-400 font-mono">
-              Easing: <span className="text-indigo-300">{spatial.motion.easingDefault}</span>
+            <div className="eyebrow">motion</div>
+            <h4 className="serif text-[21px] mt-2">slow ease out, no bounce</h4>
+            <p className="mono text-[10.5px] text-[var(--ink-faint)] mt-1">
+              {spatial.motion.easingDefault}
             </p>
           </div>
-
           <button
             type="button"
             onClick={() => setMotionTrigger((prev) => prev + 1)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono cursor-pointer shadow-sm"
+            className="btn-secondary text-[12px]"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Test Motion Physics</span>
+            test the drift
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="p-3 rounded-xl bg-[#090A0F] border border-[#1C2030]">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Duration Quick</span>
-            <div className="text-sm font-bold text-white font-mono mt-0.5">{spatial.motion.durationQuick}</div>
-            <p className="text-[11px] text-slate-400">Micro-toggles & press feedback</p>
-          </div>
-
-          <div className="p-3 rounded-xl bg-[#090A0F] border border-[#1C2030]">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Duration Standard</span>
-            <div className="text-sm font-bold text-white font-mono mt-0.5">{spatial.motion.durationStandard}</div>
-            <p className="text-[11px] text-slate-400">Modals, dropdowns & cards</p>
-          </div>
-
-          <div className="p-3 rounded-xl bg-[#090A0F] border border-[#1C2030]">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Duration Deliberate</span>
-            <div className="text-sm font-bold text-white font-mono mt-0.5">{spatial.motion.durationDeliberate || '400ms'}</div>
-            <p className="text-[11px] text-slate-400">Full layout transitions & drawers</p>
-          </div>
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 border-t border-[var(--rule)]">
+          {[
+            { label: 'quick', value: spatial.motion.durationQuick, note: 'press feedback' },
+            { label: 'standard', value: spatial.motion.durationStandard, note: 'cards and panels' },
+            { label: 'deliberate', value: spatial.motion.durationDeliberate || '400ms', note: 'drawers and layout' },
+          ].map((d) => (
+            <div key={d.label} className="py-4 sm:pr-6 border-b sm:border-b-0 border-[var(--rule)]">
+              <div className="eyebrow">{d.label}</div>
+              <div className="mono text-[13px] text-[var(--ink)] mt-1">{d.value}</div>
+              <div className="text-[11.5px] text-[var(--ink-faint)] mt-0.5">{d.note}</div>
+            </div>
+          ))}
         </div>
 
-        {/* Live Motion Physics Track */}
-        <div className="p-4 rounded-xl bg-[#07080C] border border-[#1C2030] relative overflow-hidden">
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 mb-3">
-            <span>0% ORIGIN</span>
-            <span>TIMING CURVE: {spatial.motion.easingDefault}</span>
-            <span>100% TARGET</span>
+        <div className="sunken mt-4 p-4">
+          <div className="flex items-center justify-between mono text-[9.5px] text-[var(--ink-faint)]">
+            <span>origin</span>
+            <span>{spatial.motion.easingDefault}</span>
+            <span>target</span>
           </div>
 
-          <div className="h-10 w-full bg-[#11131B] rounded-lg relative flex items-center px-2">
+          <div className="mt-3 h-9 relative">
             <div
-              key={motionTrigger}
-              className="h-7 w-16 rounded-md bg-gradient-to-r from-indigo-500 to-cyan-400 flex items-center justify-center text-[10px] font-mono font-bold text-white shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all"
+              className="absolute left-2 top-1/2 px-3 py-1 rounded-md bg-[var(--paper)] border border-[var(--rule-strong)] mono text-[10px] text-[var(--ink-soft)]"
               style={{
-                transitionProperty: 'transform',
+                transitionProperty: 'transform, opacity',
                 transitionDuration: spatial.motion.durationStandard,
                 transitionTimingFunction: spatial.motion.easingDefault,
-                transform: motionTrigger % 2 === 1 ? 'translateX(calc(100% + 280px))' : 'translateX(0)',
+                transform: `translateY(-50%) translateX(${motionTrigger % 2 === 1 ? 12 : 0}px)`,
+                opacity: motionTrigger % 2 === 1 ? 0.65 : 1,
               }}
             >
-              SPRING
+              drift
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

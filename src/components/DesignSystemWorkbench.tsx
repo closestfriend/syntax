@@ -1,15 +1,4 @@
 import React, { useState } from 'react';
-import { 
-  Palette, 
-  Type, 
-  Box, 
-  Sparkles, 
-  CheckCircle, 
-  ArrowRight,
-  Shield,
-  Layers,
-  Code2
-} from 'lucide-react';
 import { DesignSystem } from '../types/designSystem';
 import { ColorTokensView } from './ColorTokensView';
 import { TypographyMatrixView } from './TypographyMatrixView';
@@ -24,119 +13,102 @@ export const DesignSystemWorkbench: React.FC<DesignSystemWorkbenchProps> = ({
   system,
   onNavigateToComponents,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'colors' | 'typography' | 'spatial'>('colors');
+  const requestedSub = new URLSearchParams(window.location.search).get('sub');
+  const initialSub =
+    requestedSub === 'typography' || requestedSub === 'spatial' ? requestedSub : 'colors';
+  const [activeSubTab, setActiveSubTab] = useState<'colors' | 'typography' | 'spatial'>(initialSub);
+
+  const tokenCount =
+    system.colors.palette.length +
+    system.typography.steps.length +
+    system.spatial.spacingScale.length;
+
+  const subTabs = [
+    { id: 'colors', label: 'color', count: system.colors.palette.length },
+    { id: 'typography', label: 'type', count: system.typography.steps.length },
+    { id: 'spatial', label: 'space & motion' },
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Brand Identity & Strategy Header */}
-      <div className="p-6 sm:p-8 rounded-2xl bg-[#0D0F17] border border-[#1E2333] relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-2 py-0.5 rounded text-[11px] font-mono uppercase bg-indigo-950 text-indigo-300 border border-indigo-700/50">
-                ARCHETYPE // {system.identity.archetype}
-              </span>
-              <span className="px-2 py-0.5 rounded text-[11px] font-mono uppercase bg-[#181C28] text-slate-400 border border-[#23283B]">
-                THEME: {system.identity.mode.toUpperCase()}
-              </span>
-            </div>
+    <div className="space-y-14">
+      <section id="current-system" className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 scroll-mt-24">
+        <div className="lg:col-span-8">
+          <div className="eyebrow">current system</div>
+          <h2 className="serif mt-4 text-[2.4rem] sm:text-[3rem] leading-[1.08]">
+            {system.identity.name}
+          </h2>
+          <p className="serif italic text-[19px] text-[var(--ink-soft)] mt-3">
+            {system.identity.tagline}
+          </p>
+          <p className="measure mt-5 text-[14px] leading-[1.75] text-[var(--ink-soft)]">
+            {system.identity.description}
+          </p>
 
-            <h2 className="font-heading text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              {system.identity.name}
-            </h2>
-            <p className="text-sm font-sans text-indigo-200 mt-1 font-medium">
-              "{system.identity.tagline}"
-            </p>
-            <p className="text-xs sm:text-sm text-slate-400 font-sans mt-3 leading-relaxed">
-              {system.identity.description}
-            </p>
-          </div>
-
-          {/* Quick Metrics HUD */}
-          <div className="flex flex-wrap lg:flex-col gap-3 shrink-0">
-            <div className="p-3 rounded-xl bg-[#08090F] border border-[#1C2030] min-w-[160px]">
-              <span className="text-[10px] font-mono text-slate-400 uppercase">Tokens Mapped</span>
-              <div className="text-xl font-bold font-mono text-white mt-0.5">
-                {system.colors.palette.length + system.typography.steps.length + system.spatial.spacingScale.length}
+          {system.identity.visualEthos && system.identity.visualEthos.length > 0 && (
+            <div className="mt-9 pt-6 border-t border-[var(--rule)]">
+              <div className="eyebrow mb-4">principles</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-3.5">
+                {system.identity.visualEthos.map((ethos, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <span className="mt-[11px] h-px w-3 shrink-0 bg-[var(--rule-strong)]" />
+                    <span className="text-[13px] leading-[1.6] text-[var(--ink-soft)]">
+                      {ethos}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div className="p-3 rounded-xl bg-[#08090F] border border-[#1C2030] min-w-[160px]">
-              <span className="text-[10px] font-mono text-slate-400 uppercase">Component Rigs</span>
-              <div className="text-xl font-bold font-mono text-indigo-400 mt-0.5 flex items-center justify-between">
-                <span>{system.components.length} READY</span>
-                <button
-                  type="button"
-                  onClick={onNavigateToComponents}
-                  className="text-xs text-indigo-300 hover:text-white underline cursor-pointer"
-                >
-                  View →
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Visual Ethos Badges */}
-        {system.identity.visualEthos && system.identity.visualEthos.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-[#181C28]">
-            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block mb-2.5">
-              Structural & Design Principles:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-              {system.identity.visualEthos.map((ethos, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-xl bg-[#08090F] border border-[#1C2030] text-xs text-slate-300 font-sans flex items-start gap-2"
-                >
-                  <CheckCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
-                  <span>{ethos}</span>
-                </div>
-              ))}
+        <aside className="lg:col-span-4 lg:pl-10 lg:border-l lg:border-[var(--rule)]">
+          <dl className="divide-y divide-[var(--rule)] border-t border-b border-[var(--rule)]">
+            <div className="py-4 flex items-baseline justify-between gap-4">
+              <dt className="eyebrow">tokens mapped</dt>
+              <dd className="serif text-[26px] leading-none">{tokenCount}</dd>
             </div>
-          </div>
-        )}
+            <div className="py-4 flex items-baseline justify-between gap-4">
+              <dt className="eyebrow">components ready</dt>
+              <dd className="flex items-baseline gap-3">
+                <span className="serif text-[26px] leading-none">{system.components.length}</span>
+                <button onClick={onNavigateToComponents} className="btn-quiet text-[12px]">
+                  view
+                </button>
+              </dd>
+            </div>
+            <div className="py-4 flex items-baseline justify-between gap-4">
+              <dt className="eyebrow">theme</dt>
+              <dd className="text-[13px] text-[var(--ink-soft)]">{system.identity.mode}</dd>
+            </div>
+          </dl>
+
+          <p className="mt-4 text-[12px] leading-[1.7] text-[var(--ink-faint)]">
+            everything here is editable in the export. take only what you need.
+          </p>
+        </aside>
+      </section>
+
+      <div className="flex items-center gap-8 border-b border-[var(--rule)] overflow-x-auto quiet-scroll">
+        {subTabs.map((sub) => (
+          <button
+            key={sub.id}
+            onClick={() => setActiveSubTab(sub.id as any)}
+            className="tab-link"
+            data-active={activeSubTab === sub.id}
+          >
+            {sub.label}
+            {sub.count !== undefined && (
+              <span className="ml-1.5 mono text-[10px] text-[var(--ink-faint)]">{sub.count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Sub-tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-[#1E2333] pb-2 overflow-x-auto">
-        {[
-          { id: 'colors', label: 'Color Tokens & Contrast', icon: Palette, count: system.colors.palette.length },
-          { id: 'typography', label: 'Typography Hierarchy', icon: Type, count: system.typography.steps.length },
-          { id: 'spatial', label: 'Spatial, Elevation & Motion', icon: Box },
-        ].map((sub) => {
-          const Icon = sub.icon;
-          const isActive = activeSubTab === sub.id;
-          return (
-            <button
-              key={sub.id}
-              onClick={() => setActiveSubTab(sub.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono font-medium transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]'
-                  : 'bg-[#10121A] text-slate-400 hover:text-white hover:bg-[#151926]'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{sub.label}</span>
-              {sub.count !== undefined && (
-                <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] ${
-                    isActive ? 'bg-indigo-800 text-indigo-100' : 'bg-[#181C28] text-slate-400'
-                  }`}
-                >
-                  {sub.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div className="fade-in">
+        {activeSubTab === 'colors' && <ColorTokensView colors={system.colors} />}
+        {activeSubTab === 'typography' && <TypographyMatrixView typography={system.typography} />}
+        {activeSubTab === 'spatial' && <SpatialArchitectureView spatial={system.spatial} />}
       </div>
-
-      {/* Sub-tab Content Panels */}
-      {activeSubTab === 'colors' && <ColorTokensView colors={system.colors} />}
-      {activeSubTab === 'typography' && <TypographyMatrixView typography={system.typography} />}
-      {activeSubTab === 'spatial' && <SpatialArchitectureView spatial={system.spatial} />}
     </div>
   );
 };

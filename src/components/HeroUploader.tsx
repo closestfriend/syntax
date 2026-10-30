@@ -1,19 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Upload, 
-  Sparkles, 
-  Image as ImageIcon, 
-  X, 
-  Layers, 
-  ArrowRight,
-  Clipboard,
-  CheckCircle2,
-  AlertCircle,
-  Eye,
-  Sliders
-} from 'lucide-react';
+import { Upload, X, Eye, ArrowRight } from 'lucide-react';
 import { ScreenshotItem, DesignSystem } from '../types/designSystem';
 import { PRESET_SYSTEMS, PresetItem } from '../data/presets';
+import { useDialog } from '../hooks/useDialog';
 
 interface HeroUploaderProps {
   screenshots: ScreenshotItem[];
@@ -41,9 +30,18 @@ export const HeroUploader: React.FC<HeroUploaderProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [brandNotes, setBrandNotes] = useState('');
   const [previewModalImg, setPreviewModalImg] = useState<string | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useDialog<HTMLDivElement>(Boolean(previewModalImg), () =>
+    setPreviewModalImg(null)
+  );
 
-  // Global paste handler so the user can just hit Ctrl+V anywhere
+  useEffect(() => {
+    if (!confirmingClear) return;
+    const timer = setTimeout(() => setConfirmingClear(false), 4000);
+    return () => clearTimeout(timer);
+  }, [confirmingClear]);
+
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -86,6 +84,12 @@ export const HeroUploader: React.FC<HeroUploaderProps> = ({
     Array.from(files).forEach(processFile);
   };
 
+  const handleFileInput = (files: FileList | null) => {
+    handleFiles(files);
+    // Reset so choosing the same file again still fires a change event.
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
@@ -93,54 +97,60 @@ export const HeroUploader: React.FC<HeroUploaderProps> = ({
   };
 
   return (
-    <section className="relative w-full border-b border-[#1E2333] bg-gradient-to-b from-[#0B0D14] to-[#090A0F] py-8 px-4 sm:px-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Editorial Headline Block */}
-        <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-6 mb-8">
-          <div>
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-950/60 border border-indigo-700/40 text-[11px] font-mono text-indigo-300 mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>MULTIMODAL GEMINI DECONSTRUCTION ENGINE</span>
-            </div>
-            <h2 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-none">
-              REVERSE-ENGINEER <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-cyan-300 to-white">
-                DESIGN SYSTEMS
-              </span>
-            </h2>
-            <p className="mt-3 text-slate-400 text-sm sm:text-base max-w-xl font-sans">
-              Drop UI screenshots from any application or website. Extract production tokens, 
-              typography scales, WCAG matrices, and reusable React & Vue component libraries.
+    <section className="relative w-full border-b border-[var(--rule)]">
+      <div className="max-w-6xl mx-auto px-6 sm:px-10 pt-16 sm:pt-24 pb-16">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-12">
+          <div className="lg:col-span-8">
+            <div className="eyebrow">design system deconstruction</div>
+
+            <h1 className="serif mt-5 text-[clamp(2.6rem,5.6vw,4.2rem)] leading-[1.04] tracking-[-0.02em] max-w-[15ch]">
+              Read the system inside a screen.
+            </h1>
+
+            <p className="mt-6 measure text-[15.5px] leading-[1.75] text-[var(--ink-soft)]">
+              Bring one or more screenshots. Syntax returns the colors, the type scale,
+              the spacing, and the components. Quietly. All at once.
+            </p>
+
+            <p className="mt-4 mono text-[11px] text-[var(--ink-faint)]">
+              png, jpg, webp · several screens at once is fine
             </p>
           </div>
 
-          {/* Quick Presets Selector */}
-          <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto">
-            <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
-              Or explore curated archives:
-            </span>
-            <div className="flex flex-wrap gap-2">
+          <div className="lg:col-span-4 self-stretch lg:self-end order-3 lg:order-none">
+            <div className="eyebrow mb-3">or begin from an archive</div>
+            <div className="border-t border-[var(--rule)]">
               {PRESET_SYSTEMS.map((p) => {
                 const isSelected = currentSystem.identity.slug === p.system.identity.slug;
                 return (
                   <button
                     key={p.id}
                     onClick={() => onSelectPreset(p)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.25)]'
-                        : 'bg-[#121520] hover:bg-[#1A1F30] text-slate-300 border-[#22283A]'
-                    }`}
+                    className="w-full flex items-baseline justify-between gap-4 py-3 border-b border-[var(--rule)] text-left group"
                   >
-                    <span>{p.name}</span>
+                    <span className="min-w-0">
+                      <span
+                        className={`block text-[13px] transition-colors ${
+                          isSelected
+                            ? 'text-[var(--lichen)]'
+                            : 'text-[var(--ink)] group-hover:text-[var(--ink-soft)]'
+                        }`}
+                      >
+                        {p.system.identity.name.toLowerCase()}
+                      </span>
+                      <span className="block mono text-[10px] text-[var(--ink-faint)] mt-0.5 truncate">
+                        {p.category.toLowerCase()}
+                      </span>
+                    </span>
+                    {isSelected && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--lichen)] shrink-0" />
+                    )}
                   </button>
                 );
               })}
             </div>
           </div>
-        </div>
 
-        {/* Upload Zone Card */}
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -148,173 +158,186 @@ export const HeroUploader: React.FC<HeroUploaderProps> = ({
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`relative rounded-2xl border-2 transition-all p-6 sm:p-8 ${
-            isDragging
-              ? 'border-indigo-500 bg-indigo-950/20 shadow-[0_0_30px_rgba(99,102,241,0.25)]'
-              : 'border-dashed border-[#23293D] hover:border-slate-600 bg-[#0E1017]/80'
-          }`}
+          className="relative order-2 lg:order-none lg:col-span-12 mt-10 lg:mt-14 rounded-xl border border-dashed p-6 sm:p-10 transition-colors duration-300"
+          style={{
+            borderColor: isDragging ? 'var(--clay)' : 'var(--rule-strong)',
+            backgroundColor: isDragging ? 'rgba(196,112,79,0.035)' : 'transparent',
+          }}
         >
           <input
             type="file"
             ref={fileInputRef}
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={(e) => handleFileInput(e.target.files)}
             multiple
             accept="image/*"
             className="hidden"
           />
 
           {screenshots.length === 0 ? (
-            /* Empty State */
-            <div className="flex flex-col items-center justify-center text-center py-6 sm:py-10">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-950/60 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-4 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
-                <Upload className="w-6 h-6" />
+            <div className="max-w-2xl">
+              <div className="w-11 h-11 rounded-full border border-[var(--rule-strong)] flex items-center justify-center text-[var(--ink-soft)] mb-5">
+                <Upload className="w-4 h-4" />
               </div>
-              <h3 className="text-lg font-semibold text-white font-heading">
-                Drag & Drop UI Screenshots or Paste from Clipboard
-              </h3>
-              <p className="text-xs text-slate-400 font-mono mt-1 max-w-md">
-                Paste directly anywhere with <kbd className="px-1.5 py-0.5 rounded bg-[#1A1E2B] text-slate-300 border border-[#2B3247]">Ctrl+V</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-[#1A1E2B] text-slate-300 border border-[#2B3247]">Cmd+V</kbd> or choose image files (PNG, JPG, WEBP).
+              <h2 className="serif text-[27px] leading-tight">start with a screenshot</h2>
+              <p className="mt-2.5 measure text-[14px] leading-[1.7] text-[var(--ink-soft)]">
+                Drag one in, paste from the clipboard, or choose a file. Add as many screens
+                as you like. Nothing is guessed until you ask.
               </p>
 
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-5">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold font-mono tracking-wide transition-all shadow-[0_0_15px_rgba(99,102,241,0.3)] cursor-pointer"
+                  className="btn-primary"
                 >
-                  SELECT SCREENSHOT FILES
+                  choose screenshots
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
-                <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-                  <span>• Supports multi-screen sets (e.g. Nav + Card + Modal)</span>
-                </div>
+                <span className="text-[12px] text-[var(--ink-faint)]">
+                  or press <kbd className="tag py-0.5 px-1.5">ctrl / cmd + v</kbd> anywhere
+                </span>
               </div>
             </div>
           ) : (
-            /* Populated State with Screenshot Strip */
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-slate-400 uppercase">
-                    Screenshots Loaded:
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 font-mono text-xs font-bold border border-indigo-800">
+            <div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="eyebrow">screenshots</span>
+                  <span className="mono text-[11px] text-[var(--ink-faint)]">
                     {screenshots.length}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-5">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-xs font-mono text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                    className="btn-quiet text-[12px]"
                   >
-                    + Add More Images
+                    add more
                   </button>
                   <button
                     type="button"
-                    onClick={onClearScreenshots}
-                    className="text-xs font-mono text-rose-400 hover:text-rose-300 cursor-pointer"
+                    onClick={() => {
+                      if (!confirmingClear) {
+                        setConfirmingClear(true);
+                        return;
+                      }
+                      setConfirmingClear(false);
+                      onClearScreenshots();
+                    }}
+                    className={`text-[12px] transition-colors ${
+                      confirmingClear
+                        ? 'text-[var(--brick)] underline underline-offset-4 decoration-1'
+                        : 'text-[var(--ink-faint)] hover:text-[var(--brick)]'
+                    }`}
                   >
-                    Clear All
+                    {confirmingClear ? `remove all ${screenshots.length}?` : 'clear all'}
                   </button>
                 </div>
               </div>
 
-              {/* Thumbnails grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {screenshots.map((s, idx) => (
                   <div
                     key={s.id}
-                    className="group relative rounded-xl overflow-hidden border border-[#23293D] bg-[#121520] aspect-video flex items-center justify-center shadow-md"
+                    className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-[var(--rule)] bg-[var(--panel-soft)]"
                   >
                     <img
                       src={s.dataUrl}
                       alt={s.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <div className="absolute inset-0 bg-[rgba(43,42,40,0.38)] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-300 flex items-end sm:items-center justify-end sm:justify-center gap-2 p-1.5 sm:p-0">
                       <button
                         type="button"
                         onClick={() => setPreviewModalImg(s.dataUrl)}
-                        className="p-1.5 rounded-lg bg-white/20 hover:bg-white/40 text-white cursor-pointer"
-                        title="View Fullsize"
+                        className="icon-btn"
+                        title="view full size"
+                        aria-label={`view ${s.name} full size`}
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
                         onClick={() => onRemoveScreenshot(s.id)}
-                        className="p-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white cursor-pointer"
-                        title="Remove"
+                        className="icon-btn"
+                        title="remove"
+                        aria-label={`remove ${s.name}`}
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <span className="absolute bottom-1 left-1.5 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-slate-300">
-                      #{idx + 1}
+                    <span className="absolute bottom-1.5 left-1.5 mono text-[9px] text-[var(--ink-soft)] bg-[var(--paper)] border border-[var(--rule)] rounded px-1.5 py-0.5">
+                      {String(idx + 1).padStart(2, '0')}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* Brand guidance input + Synthesize trigger bar */}
-              <div className="flex flex-col sm:flex-row items-stretch gap-3 pt-2 border-t border-[#1B2030]">
-                <div className="relative flex-1">
-                  <Sliders className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+              <div className="mt-7 pt-6 border-t border-[var(--rule)] flex flex-col sm:flex-row sm:items-end gap-4">
+                <label className="flex-1">
+                  <span className="eyebrow block mb-2">optional direction</span>
                   <input
                     type="text"
                     value={brandNotes}
                     onChange={(e) => setBrandNotes(e.target.value)}
-                    placeholder="Optional brand notes: e.g., 'Modern fintech dark mode with high WCAG contrast', 'Luxury Swiss magazine'..."
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#121520] border border-[#23293D] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-sans"
+                    placeholder="e.g. editorial and generous, high contrast, warm light"
+                    className="input"
                   />
-                </div>
+                </label>
 
                 <button
                   type="button"
                   disabled={isAnalyzing}
                   onClick={() => onSynthesize(brandNotes)}
-                  className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-mono text-xs font-bold tracking-wider uppercase transition-all cursor-pointer ${
-                    isAnalyzing
-                      ? 'bg-indigo-950 text-indigo-400 border border-indigo-700 cursor-wait'
-                      : 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white shadow-[0_0_25px_rgba(99,102,241,0.4)]'
-                  }`}
+                  className="btn-primary sm:mb-[1px] shrink-0"
                 >
                   {isAnalyzing ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                      <span>{analysisStep || 'SYNTHESIZING...'}</span>
-                    </>
+                    <span>{analysisStep || 'reading the screen'}</span>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4 text-indigo-200" />
-                      <span>SYNTHESIZE DESIGN SYSTEM</span>
+                      <span>synthesize the system</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
               </div>
+
+              {isAnalyzing && (
+                <p className="mt-3 text-[12px] text-[var(--ink-faint)]">
+                  this takes a moment. you can keep the tab open.
+                </p>
+              )}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Fullsize image preview modal */}
         {previewModalImg && (
-          <div
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          <div className="fixed inset-0 z-50 scrim flex items-center justify-center p-4 sm:p-8"
             onClick={() => setPreviewModalImg(null)}
           >
-            <div className="relative max-w-4xl max-h-[90vh] rounded-2xl overflow-hidden border border-slate-700 bg-slate-900 p-2">
+            <div
+              ref={previewRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="screenshot preview"
+              className="relative max-w-4xl max-h-[90vh] card p-2"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 type="button"
                 onClick={() => setPreviewModalImg(null)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-black/70 text-white hover:bg-black cursor-pointer"
+                className="absolute top-3 right-3 icon-btn z-10"
+                title="close"
+                aria-label="close the preview"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
               <img
                 src={previewModalImg}
                 alt="Enlarged screenshot preview"
-                className="max-h-[85vh] w-auto object-contain rounded-xl"
+                className="max-h-[84vh] w-auto object-contain rounded-lg"
               />
             </div>
           </div>
